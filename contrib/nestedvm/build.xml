@@ -1,0 +1,355 @@
+<?xml version="1.0"?>
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements. See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership. The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License. You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing,
+ software distributed under the License is distributed on an
+ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ KIND, either express or implied. See the License for the
+ specific language governing permissions and limitations
+ under the License.
+ -->
+<project name="thrift-compiler" default="dist" basedir="."
+  xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+
+  <description>Thrift Build File</description>
+  <property name="thrift.root" location="../../"/>
+  <property name="thrift.artifactid" value="thrift-compiler"/>
+
+  <property file="${basedir}/build.properties" />
+
+  <property environment="env"/>
+
+  <condition property="version" value="${thrift.version}">
+    <isset property="release"/>
+  </condition>
+  <property name="version" value="${thrift.version}-SNAPSHOT"/>
+
+  <property name="final.name" value="${thrift.artifactid}-${version}"/>
+
+  <property name="build" location="${basedir}/build/ant" />
+  <property name="build.lib" location="${build}/lib" />
+  <property name="build.tools" location="${build}/tools" />
+  <property name="build.tests" location="${build}/tests" />
+  <property name="target" location="${build}/target"/>
+
+  <property name="nestedvm.src" location="build/nestedvm/src" />
+  <property name="nestedvm.bin" location="build/nestedvm/classes" />
+  <property name="nestedvm.jar" location="build/nestedvm/nestedvm.jar" />
+
+  <property name="main.src" location="${basedir}/src/main/java"/>
+  <property name="main.bin" location="${target}/classes" />
+ 
+  <property name="test.src" location="${basedir}/src/test/java"/>
+  <property name="test.bin" location="${target}/test-classes" />
+  
+  <property name="javadoc.dir" location="${build}/javadoc"/>
+  <property name="test.thrift.home" location="${thrift.root}/test"/>
+
+  <property name="jar.file" location="${build}/${final.name}.jar"/>
+  <property name="test.jar.file" location="${build}/${final.name}-test.jar"/>
+  <property name="javadoc.jar.file" location="${build}/${final.name}-javadoc.jar"/>
+  <property name="source.jar.file" location="${build}/${final.name}-sources.jar"/>
+
+  <property name="test.junit.output.format" value="plain"/>
+  <property name="test.timeout" value="2000000"/>
+  <property name="test.src.dir" location="${basedir}/src/test/java"/>
+  <property name="test.log.dir" value="${build.tests}/log"/>
+  <property name="test.port" value="9090"/>
+
+  <property name="pom.xml" location="${build}/${final.name}.pom"/>
+
+  <path id="main.src.path">
+    <pathelement location="${main.src}" />
+    <fileset dir="${nestedvm.src}">
+      <include name="**/*.java" />
+      <exclude name="**/classgen/**/*" />
+      <exclude name="**/*Compiler.java" />
+    </fileset>
+  </path>
+
+  <path id="compile.classpath">
+    <fileset dir="build/thrift" includes="thrift_preverified.jar" />
+    <fileset dir="build/nestedvm" includes="nestedvm.jar" />
+  </path>
+
+  <path id="test.classpath">
+    <path refid="compile.classpath"/>
+    <pathelement path="${env.CLASSPATH}"/>
+    <pathelement location="${build.tests}"/>
+    <pathelement location="${jar.file}"/>
+    <pathelement location="${test.jar.file}"/>
+    <fileset dir="${build.lib}" includes="junit*.jar" />
+  </path>
+
+  <target name="init" depends="setup.init,mvn.init" unless="init.finished">
+    <property name="init.finished" value="true"/>
+  </target>
+
+  <target name="setup.init">
+    <tstamp/>
+    <mkdir dir="${build}"/>
+    <mkdir dir="${main.bin}" />
+    <mkdir dir="${test.bin}" />
+    <mkdir dir="${build.lib}"/>
+    <mkdir dir="${build.tools}"/>
+    <mkdir dir="${build.tests}"/>
+  </target>
+
+  <target name="nestedvm-compile" depends="init">
+    <mkdir dir="${nestedvm.bin}" />
+    <javac srcdir="${nestedvm.src}" destdir="${nestedvm.bin}" 
+        source="1.7" target="1.7" debug="true" 
+        includeantruntime="false" encoding="UTF-8">
+    </javac>
+  </target>
+
+  <target name="nestedvm-jar" depends="nestedvm-compile">
+    <jar jarfile="${nestedvm.jar}">
+      <fileset dir="${nestedvm.bin}">
+        <include name="**/*.class" />
+      </fileset>
+    </jar>
+  </target>
+
+  <target name="compile" depends="init">
+    <javac srcdir="${main.src}" destdir="${main.bin}" 
+        source="1.7" target="1.7"
+        debug="true" classpathref="compile.classpath" 
+        includeantruntime="false" encoding="UTF-8">
+    </javac>
+  </target>
+
+  <target name="javadoc" depends="init">
+    <javadoc sourcepathref="main.src.path" destdir="${javadoc.dir}"
+      version="true" windowtitle="Thrift Compiler" doctitle="Thrift Compiler"
+      classpathref="compile.classpath">
+    </javadoc>
+    <jar jarfile="${javadoc.jar.file}" basedir="${javadoc.dir}">
+      <manifest>
+        <attribute name="Implementation-Version" value="${version}"/>
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="dist" depends="compile">
+    <mkdir dir="${target}/META-INF"/>
+    <copy file="${thrift.root}/LICENSE" tofile="${target}/META-INF/LICENSE.txt"/>
+    <copy file="${thrift.root}/NOTICE" tofile="${target}/META-INF/NOTICE.txt"/>
+    <java fork="true" newenvironment="true" classname="org.apache.thrift.compiler.internal.Runtime" classpathref="test.classpath">
+      <arg value="-version" />
+      <redirector>
+        <outputmapper type="merge" to="${main.bin}/org/apache/thrift/compiler/thrift.compiler.version" />
+      </redirector>
+    </java>
+    <jar jarfile="${jar.file}">
+      <manifest>
+        <attribute name="Main-Class" value="thrift" />
+      </manifest>
+      <fileset dir="${main.bin}">
+        <include name="**/*.class"/>
+      	<include name="**/thrift.compiler.version"/>
+      </fileset>
+      <fileset dir="build/nestedvm/classes">
+        <include name="**/*.class" />
+        <exclude name="**/classgen/**/*" />
+        <exclude name="**/*Compiler.class" />
+        <exclude name="**/*Compiler$*.class" />
+      </fileset>
+      <fileset dir="${target}">
+        <include name="META-INF/*.txt"/>
+      </fileset>
+      <zipfileset src="build/thrift/thrift_preverified.jar" includes="org/**/*" />
+    </jar>
+  </target>
+
+  <target name="pack.src">
+    <jar jarfile="${source.jar.file}">
+      <fileset dir="${main.src}">
+        <include name="**/*.java"/>
+      </fileset>
+      <fileset dir="${nestedvm.src}">
+        <include name="**/*.java" />
+        <exclude name="**/classgen/**/*" />
+        <exclude name="**/*Compiler.java" />
+      </fileset>
+    </jar>
+  </target>
+
+  <target name="clean">
+    <delete dir="${build}"/>
+  </target>
+
+  <target name="compile-test" description="Build the test suite classes" depends="dist">
+    <javac debug="true" encoding="UTF-8"
+        srcdir="${test.src}" destdir="${test.bin}" 
+        classpathref="test.classpath" includeantruntime="false">
+      <compilerarg value="-Xlint:deprecation"/>
+    </javac>
+    <jar jarfile="${test.jar.file}" basedir="${test.bin}"/>
+  </target>
+
+  <target name="junit-test" description="Run the JUnit test suite" depends="compile-test">
+    <mkdir dir="${test.log.dir}"/>
+    <junit printsummary="true" 
+           showoutput="${test.output}" 
+           timeout="${test.timeout}" 
+           haltonfailure="true" 
+           errorProperty="tests.failed" 
+           failureProperty="tests.failed"
+           fork="true" 
+           forkmode="perTest" 
+           maxmemory="512m">
+      <classpath refid="test.classpath"/>
+      <formatter type="${test.junit.output.format}"/>
+      <batchtest todir="${test.log.dir}" unless="testcase">
+        <fileset dir="${test.src.dir}">
+          <include name="**/*Test.java"/>
+        </fileset>
+      </batchtest>
+      <batchtest todir="${test.log.dir}" if="testcase">
+        <fileset dir="${test.src.dir}" includes="**/${testcase}.java"/>
+      </batchtest>
+    </junit>
+    <fail if="tests.failed">Tests failed!</fail>
+  </target>
+
+  <target name="test" description="Run the full test suite" depends="junit-test"/>
+
+  <target name="mvn.ant.tasks.download" depends="setup.init,mvn.ant.tasks.check,proxy" unless="mvn.ant.tasks.found">
+    <get src="${mvn.ant.task.url}/${mvn.ant.task.jar}" dest="${build.tools}/${mvn.ant.task.jar}" usetimestamp="true"/>
+  </target>
+
+  <target name="mvn.ant.tasks.check">
+    <condition property="mvn.ant.tasks.found">
+      <typefound uri="antlib:org.apache.maven.artifact.ant" name="artifact"/>
+    </condition>
+  </target>
+
+  <target name="mvn.init" depends="mvn.ant.tasks.download" unless="mvn.finished">
+    <!-- Download mvn ant tasks, download dependencies, and setup pom file -->
+    <typedef uri="antlib:org.apache.maven.artifact.ant" classpath="${build.tools}/${mvn.ant.task.jar}"/>
+
+    <!-- remote repositories used to download dependencies from -->
+    <artifact:remoteRepository id="central" url="${mvn.repo}"/>
+    <artifact:remoteRepository id="apache" url="${apache.repo}"/>
+
+    <!-- Pom file information -->
+    <artifact:pom id="pom"
+      groupId="${thrift.groupid}"
+      artifactId="${thrift.artifactid}"
+      version="${version}"
+      url="http://thrift.apache.org"
+      name="Apache Thrift"
+      description="Thrift is a software framework for scalable cross-language services development."
+      packaging="pom"
+    >
+      <remoteRepository refid="central"/>
+      <remoteRepository refid="apache"/>
+      <license name="The Apache Software License, Version 2.0" url="${license}"/>
+      <scm connection="scm:git:https://git-wip-us.apache.org/repos/asf/thrift.git"
+      developerConnection="scm:git:https://git-wip-us.apache.org/repos/asf/thrift.git"
+      url="https://git-wip-us.apache.org/repos/asf?p=thrift.git"
+      />
+      <!-- Thrift Developers -->
+      <developer id="mcslee" name="Mark Slee"/>
+      <developer id="dreiss" name="David Reiss"/>
+      <developer id="aditya" name="Aditya Agarwal"/>
+      <developer id="marck" name="Marc Kwiatkowski"/>
+      <developer id="jwang" name="James Wang"/>
+      <developer id="cpiro" name="Chris Piro"/>
+      <developer id="bmaurer" name="Ben Maurer"/>
+      <developer id="kclark" name="Kevin Clark"/>
+      <developer id="jake" name="Jake Luciani"/>
+      <developer id="bryanduxbury" name="Bryan Duxbury"/>
+      <developer id="esteve" name="Esteve Fernandez"/>
+      <developer id="todd" name="Todd Lipcon"/>
+      <developer id="geechorama" name="Andrew McGeachie"/>
+      <developer id="molinaro" name="Anthony Molinaro"/>
+      <developer id="roger" name="Roger Meier"/>
+      <developer id="jfarrell" name="Jake Farrell"/>
+      <developer id="jensg" name="Jens Geyer"/>
+      <developer id="carl" name="Carl Yeksigian"/>
+
+    </artifact:pom>
+
+    <!-- Generate the pom file -->
+    <artifact:writepom pomRefId="pom" file="${pom.xml}"/>
+
+    <!-- Download the dependencies -->
+    <artifact:dependencies filesetId="build-dependency-jars" pomRefId="pom"/>
+
+    <!-- Copy the dependencies to the build/lib dir -->
+    <copy todir="${build}/lib">
+      <fileset refid="build-dependency-jars"/>
+      <mapper type="flatten"/>
+    </copy>
+
+    <!-- Dependencies needed for testing -->
+    <artifact:dependencies filesetId="test-dependency-jars" useScope="runtime">
+      <dependency groupId="junit" artifactId="junit" version="4.4"/>
+    </artifact:dependencies>
+
+    <!-- Copy the test dependencies to the build/lib dir -->
+    <copy todir="${build}/lib">
+      <fileset refid="test-dependency-jars"/>
+      <mapper type="flatten"/>
+    </copy>
+
+    <property name="mvn.finished" value="true"/>
+  </target>
+
+  <target name="mvn.install" depends="mvn.init">
+    <artifact:install file="${pom.xml}">
+      <pom file="${pom.xml}" />
+      <attach file="${jar.file}" type="jar" />
+      <attach file="${source.jar.file}" type="jar" classifier="sources"/>
+      <attach file="${javadoc.jar.file}" type="jar" classifier="javadoc"/>
+    </artifact:install>
+  </target>
+ 
+  <macrodef name="signAndDeploy">
+    <!-- Sign and deploy jars to apache repo -->
+    <attribute name="file"/>
+    <attribute name="classifier" default=""/>
+    <attribute name="packaging" default="jar"/>
+    <attribute name="pom" default=""/>
+    <sequential>
+      <artifact:mvn fork="true">
+        <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.6:sign-and-deploy-file"/>
+        <arg value="-DrepositoryId=${maven-repository-id}"/>
+        <arg value="-Durl=${maven-repository-url}"/>
+        <arg value="-DpomFile=@{pom}"/>
+        <arg value="-Dfile=@{file}"/>
+        <arg value="-Dclassifier=@{classifier}"/>
+        <arg value="-Dpackaging=@{packaging}"/>
+        <arg value="-Pgpg"/>
+      </artifact:mvn>
+    </sequential>
+  </macrodef>
+
+  <target name="package" depends="clean,init,test,dist,javadoc,pack.src" />
+
+  <target name="publish" depends="package">
+    <!-- Compile, package, test and then send release to apache maven repo -->
+    <!-- run with: ant -Drelease=true publish-->
+    <signAndDeploy file="${pom.xml}" packaging="pom" classifier="" pom="${pom.xml}"/>
+    <signAndDeploy file="${jar.file}" classifier="" pom="${pom.xml}"/>
+    <signAndDeploy file="${javadoc.jar.file}" classifier="javadoc" pom="${pom.xml}"/>
+    <signAndDeploy file="${source.jar.file}" classifier="sources" pom="${pom.xml}"/>
+  </target>
+
+  <target name="proxy" if="proxy.enabled">
+    <setproxy proxyhost="${proxy.host}" proxyport="${proxy.port}"
+      proxyuser="${proxy.user}" proxypassword="${proxy.pass}"/>
+  </target>
+
+</project>
