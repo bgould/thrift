@@ -65,6 +65,13 @@ Once it is in you local repository you can add it to your Maven project:
 For an example of how to invoke the compiler from a Java program, you can
 take a look at the [`ThriftCompilerTest`][5] class.
 
+Known Issue(s):
+---------------
+
+On Windows, UNC paths probably will not work (i.e., `\\someserver\somefile`).
+This is a limitation of NestedVM and is not simple to fix.  A workaround might
+be to create a mapped network drive (i.e., `N:\somefile`).
+
 [1]: http://nestedvm.ibex.org/
 [2]: https://lists.hcoop.net/pipermail/nestedvm/2014-September/000151.html
 [3]: http://thrift.apache.org/docs/BuildingFromSource

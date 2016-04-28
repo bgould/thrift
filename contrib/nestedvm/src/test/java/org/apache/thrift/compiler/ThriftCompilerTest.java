@@ -122,23 +122,36 @@ public class ThriftCompilerTest {
     final JavaThriftCompiler compiler = new JavaThriftCompiler();
     final String[] inputs = new String[] {
       "-debug",
-      "-o", "D:\\test\\o",
-      "-I", "D:/test/I",
+      "-o", "A:\\test\\o",
+      "-I", "Z:/test/I",
       "-I", "include",
-      "-out", "D:/test\\out",
-      "D:\\test/test.thrift"
+      "-I", "@:\\test\\offbyone",
+      "-I", "[:\\test\\offbyone",
+      "-I", "`:\\test\\offbyone",
+      "-I", "{:\\test\\offbyone",
+      "-out", "a:/test\\out",
+      "z:\\test/test.thrift"
     };
     final String[] vm_args1 = compiler.createVmArgs(inputs, true);
-    assertEquals("thrift", vm_args1[0]);
-    assertEquals("-debug", vm_args1[1]);
-    assertEquals("-o", vm_args1[2]);
-    assertEquals("/cygdrive/d/test/o", vm_args1[3]);
-    assertEquals("-I", vm_args1[4]);
-    assertEquals("/cygdrive/d/test/I", vm_args1[5]);
-    assertEquals("-I", vm_args1[6]);
-    assertEquals("include", vm_args1[7]);
-    assertEquals("-out", vm_args1[8]);
-    assertEquals("/cygdrive/d/test/out", vm_args1[9]);
-    assertEquals("/cygdrive/d/test/test.thrift", vm_args1[10]);
+    int i = 0;
+    assertEquals("thrift", vm_args1[i++]);
+    assertEquals("-debug", vm_args1[i++]);
+    assertEquals("-o", vm_args1[i++]);
+    assertEquals("/cygdrive/a/test/o", vm_args1[i++]);
+    assertEquals("-I", vm_args1[i++]);
+    assertEquals("/cygdrive/z/test/I", vm_args1[i++]);
+    assertEquals("-I", vm_args1[i++]);
+    assertEquals("include", vm_args1[i++]);
+    assertEquals("-I", vm_args1[i++]);
+    assertEquals("@:/test/offbyone", vm_args1[i++]);
+    assertEquals("-I", vm_args1[i++]);
+    assertEquals("[:/test/offbyone", vm_args1[i++]);
+    assertEquals("-I", vm_args1[i++]);
+    assertEquals("`:/test/offbyone", vm_args1[i++]);
+    assertEquals("-I", vm_args1[i++]);
+    assertEquals("{:/test/offbyone", vm_args1[i++]);
+    assertEquals("-out", vm_args1[i++]);
+    assertEquals("/cygdrive/a/test/out", vm_args1[i++]);
+    assertEquals("/cygdrive/z/test/test.thrift", vm_args1[i++]);
   }
 }
