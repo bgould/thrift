@@ -211,7 +211,6 @@ public abstract class ThriftCompiler {
       try {
         nativeVersion = nativeCompiler.version();
       } catch (ThriftCompilerException e) {
-        e.printStackTrace();
         nativeVersion = null;
       }
       final String embeddedVer = embeddedThriftCompilerVersion();

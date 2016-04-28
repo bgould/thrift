@@ -31,11 +31,11 @@ public class NativeThriftCompiler extends ThriftCompiler {
 
   private final String executable;
 
-  public NativeThriftCompiler(String executable) {
+  public NativeThriftCompiler(final String executable) {
     this.executable = executable;
   }
 
-  public ExecutionResult execute(String... args) {
+  public ExecutionResult execute(final String... args) {
     if (args == null) {
       throw new IllegalArgumentException("args cannot be null");
     }
@@ -46,39 +46,40 @@ public class NativeThriftCompiler extends ThriftCompiler {
     String errString = null;
     int exit = Integer.MIN_VALUE;
     boolean interrupted = false;
+    Process process = null;
+    InputStream outstream = null;
+    InputStream errstream = null;
     try {
+      process = Runtime.getRuntime().exec(proc_args);
+      outstream = process.getInputStream();
+      errstream = process.getErrorStream();
       final ByteArrayOutputStream out = new ByteArrayOutputStream();
       final ByteArrayOutputStream err = new ByteArrayOutputStream();
-      final Process process = Runtime.getRuntime().exec(proc_args);
-      final InputStream outstream = process.getInputStream();
-      final InputStream errstream = process.getErrorStream();
       final byte[] buffer = new byte[1024];
-      try {
-        for (boolean exited = false; !exited; ) {
-          final int readFromOut = nonBlockingCopy(outstream, out, buffer);
-          final int readFromErr = nonBlockingCopy(errstream, err, buffer);
-          if (readFromOut < 1 && readFromErr < 1) {
-            try {
-              exit = process.exitValue();
-              exited = true;
-            } catch (IllegalThreadStateException e) {
-              // the process has not exited yet, so loop again
-              try { Thread.sleep(1); } catch (InterruptedException e2) {}
-            }
+      for (boolean exited = false; !exited; ) {
+        final int readFromOut = nonBlockingCopy(outstream, out, buffer);
+        final int readFromErr = nonBlockingCopy(errstream, err, buffer);
+        if (readFromOut < 1 && readFromErr < 1) {
+          try {
+            exit = process.exitValue();
+            exited = true;
+          } catch (IllegalThreadStateException e) {
+            // the process has not exited yet, so loop again
+            try { Thread.sleep(1); } catch (InterruptedException e2) {}
           }
         }
-        blockingCopy(outstream, out, buffer);
-        blockingCopy(errstream, err, buffer);
-      } finally {
-        try { outstream.close(); } catch (IOException e) {}
-        try { errstream.close(); } catch (IOException e) {}
-        process.destroy();
       }
+      blockingCopy(outstream, out, buffer);
+      blockingCopy(errstream, err, buffer);
       outString = out.toString();
       errString = err.toString();
       return new ExecutionResult(exit, interrupted, outString, errString, null);
     } catch (IOException e) {
       throw new ThriftCompilerException(e);
+    } finally {
+      if (outstream != null) try { outstream.close(); } catch (IOException e) {}
+      if (errstream != null) try { errstream.close(); } catch (IOException e) {}
+      if (process != null) process.destroy();
     }
   }
 
