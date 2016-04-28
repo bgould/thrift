@@ -60,7 +60,7 @@ public class JavaThriftCompiler extends ThriftCompiler {
     final StringBuilder sb = new StringBuilder(filepath.length() + 15);
     if ( (':' == filepath.charAt(1)) &&
         ((c2 == '/') || (c2 == '\\')) &&
-        ((c0 >= 41 && c0 <= 90) || (c0 >= 97 && c0 <= 122)) ) {
+        ((c0 >= 65 && c0 <= 90) || (c0 >= 97 && c0 <= 122)) ) {
       sb.append("/cygdrive/").append(Character.toLowerCase(c0)).append('/');
       start = 3;
     } else {
