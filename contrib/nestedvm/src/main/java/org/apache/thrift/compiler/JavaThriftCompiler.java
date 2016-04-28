@@ -20,6 +20,7 @@ package org.apache.thrift.compiler;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 
 import org.apache.thrift.compiler.internal.Runtime;
 
@@ -34,9 +35,7 @@ public class JavaThriftCompiler extends ThriftCompiler {
     final ByteArrayInputStream in = new ByteArrayInputStream(new byte[0]);
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
     final ByteArrayOutputStream err = new ByteArrayOutputStream();
-    final String[] vm_args = new String[args.length + 1];
-    vm_args[0] = "thrift";
-    System.arraycopy(args, 0, vm_args, 1, args.length);
+    final String[] vm_args = createVmArgs(args, File.separatorChar == '\\');
     compiler.closeFD(0);
     compiler.closeFD(1);
     compiler.closeFD(2);
@@ -53,9 +52,67 @@ public class JavaThriftCompiler extends ThriftCompiler {
     );
   }
 
+  private String cygwinifyFilePath(String filepath) {
+    final int start;
+    final int strlen = filepath.length();
+    final char c0 = filepath.charAt(0);
+    final char c2 = filepath.charAt(2);
+    final StringBuilder sb = new StringBuilder(filepath.length() + 15);
+    if ( (':' == filepath.charAt(1)) &&
+        ((c2 == '/') || (c2 == '\\')) &&
+        ((c0 >= 41 && c0 <= 90) || (c0 >= 97 && c0 <= 122)) ) {
+      sb.append("/cygdrive/").append(Character.toLowerCase(c0)).append('/');
+      start = 3;
+    } else {
+      start = 0;
+    }
+    for (int i = start; i < strlen; i++) {
+      final char c = filepath.charAt(i);
+      switch (c) {
+      case '\\':
+        sb.append('/');
+        break;
+      default:
+        sb.append(c);
+      }
+    }
+    return sb.toString();
+  }
+
   @Override
   public boolean isNativeExecutable() {
     return false;
+  }
+
+  String[] createVmArgs(String[] args, boolean isWindows) {
+    final String[] vm_args = new String[args.length + 1];
+    vm_args[0] = "thrift";
+    if (!isWindows) {
+      System.arraycopy(args, 0, vm_args, 1, args.length);
+    } else {
+      for (int i = 0, c = args.length, f = 0; i < c; i++) {
+        final String arg = args[i];
+        if (f > 0) {
+          vm_args[i + 1] = cygwinifyFilePath(arg);
+          f = 0;
+        } else {
+          if ("-out".equals(arg) || "-o".equals(arg) || "-I".equals(arg)) {
+            f = 1;
+          } else {
+            f = 0;
+          }
+          vm_args[i + 1] = arg;
+        }
+        if (i == (c - 2)) {
+          f = 1;
+        }
+      }
+    }
+    return vm_args;
+  }
+
+  protected boolean isWindows() {
+    return File.pathSeparatorChar == '\\';
   }
 
 }

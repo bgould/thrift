@@ -113,8 +113,32 @@ public class ThriftCompilerTest {
     assertTrue("should be native", compiler instanceof NativeThriftCompiler);
     assertTrue("isNativeExecutable == true", compiler.isNativeExecutable());
     assertEquals("custom executable path should be set", 
-        ((NativeThriftCompiler) compiler).getExecutable(), "/fake/test/thrift");
+      ((NativeThriftCompiler) compiler).getExecutable(), "/fake/test/thrift");
 
   }
 
+  @Test
+  public void testNestedVmWindowsArgs() {
+    final JavaThriftCompiler compiler = new JavaThriftCompiler();
+    final String[] inputs = new String[] {
+      "-debug",
+      "-o", "D:\\test\\o",
+      "-I", "D:/test/I",
+      "-I", "include",
+      "-out", "D:/test\\out",
+      "D:\\test/test.thrift"
+    };
+    final String[] vm_args1 = compiler.createVmArgs(inputs, true);
+    assertEquals("thrift", vm_args1[0]);
+    assertEquals("-debug", vm_args1[1]);
+    assertEquals("-o", vm_args1[2]);
+    assertEquals("/cygdrive/d/test/o", vm_args1[3]);
+    assertEquals("-I", vm_args1[4]);
+    assertEquals("/cygdrive/d/test/I", vm_args1[5]);
+    assertEquals("-I", vm_args1[6]);
+    assertEquals("include", vm_args1[7]);
+    assertEquals("-out", vm_args1[8]);
+    assertEquals("/cygdrive/d/test/out", vm_args1[9]);
+    assertEquals("/cygdrive/d/test/test.thrift", vm_args1[10]);
+  }
 }
