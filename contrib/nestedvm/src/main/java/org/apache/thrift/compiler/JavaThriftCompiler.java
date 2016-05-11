@@ -35,7 +35,7 @@ public class JavaThriftCompiler extends ThriftCompiler {
     final ByteArrayInputStream in = new ByteArrayInputStream(new byte[0]);
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
     final ByteArrayOutputStream err = new ByteArrayOutputStream();
-    final String[] vm_args = createVmArgs(args, File.separatorChar == '\\');
+    final String[] vm_args = createVmArgs(args, isWindows());
     compiler.closeFD(0);
     compiler.closeFD(1);
     compiler.closeFD(2);
@@ -52,7 +52,63 @@ public class JavaThriftCompiler extends ThriftCompiler {
     );
   }
 
-  private String cygwinifyFilePath(String filepath) {
+  @Override
+  public boolean isNativeExecutable() {
+    return false;
+  }
+
+  protected boolean isWindows() {
+    return File.pathSeparatorChar == '\\';
+  }
+
+  /**
+   * <p>Converts an argument array into a format suitable for passing to the
+   * NestedVM runtime.  Specifically, NestedVM expects a program name to be in
+   * argv[0] as in the main function of a C program.</p>
+   * <p>Also, NestedVM cannot handle absolute file paths in Windows properly, 
+   * so if <code>isWindows == true</code> then the args are inspected for 
+   * file paths that start with Windows drive letters (i.e., C:\foo.thrift)
+   * and converted to Cygwin style paths (i.e., /cygdrive/c/foo.thrift),
+   * which the <code>realpath</code> syscall in NestedVM are is to handle.</p>
+   * @param args Arguments to pass to the Thrift compiler program
+   * @param isWindows Flag to denote if Windows paths should be munged
+   * @return A new array of arguments including the program and updated paths
+   */
+  static final String[] createVmArgs(String[] args, boolean isWindows) {
+    final String[] vm_args = new String[args.length + 1];
+    vm_args[0] = "thrift";
+    if (!isWindows) {
+      // on most platforms, we can just copy the arguments to the compiler
+      System.arraycopy(args, 0, vm_args, 1, args.length);
+    } else {
+      // on Windows, file paths might need to be munged for NestedVM to work
+      for (int i = 0, c = args.length, file_path_flag = 0; i < c; i++) {
+        final String arg = args[i];
+        // munge if the next arg should be a file path, and also the last arg
+        if (file_path_flag > 0 || (i == (c - 1))) {
+          vm_args[i + 1] = cygwinifyFilePath(arg);
+          file_path_flag = 0;
+        } else {
+          // set the 'file path flag' to true for certain options
+          if ("-out".equals(arg) || "-o".equals(arg) || "-I".equals(arg)) {
+            file_path_flag = 1;
+          } else {
+            file_path_flag = 0;
+          }
+          vm_args[i + 1] = arg;
+        }
+      }
+    }
+    return vm_args;
+  }
+
+  /**
+   * <p>Converts absolute Windows file paths (i.e., C:\somedir\somefile.thrift)
+   * to Cygwin-style file paths (i.e., /cygdrive/c/somedir/somefile.thrift)</p>
+   * @param filepath The file path to possibly munge
+   * @return The modified file path
+   */
+  private static final String cygwinifyFilePath(String filepath) {
     final int start;
     final int strlen = filepath.length();
     final char c0 = filepath.charAt(0);
@@ -77,42 +133,6 @@ public class JavaThriftCompiler extends ThriftCompiler {
       }
     }
     return sb.toString();
-  }
-
-  @Override
-  public boolean isNativeExecutable() {
-    return false;
-  }
-
-  String[] createVmArgs(String[] args, boolean isWindows) {
-    final String[] vm_args = new String[args.length + 1];
-    vm_args[0] = "thrift";
-    if (!isWindows) {
-      System.arraycopy(args, 0, vm_args, 1, args.length);
-    } else {
-      for (int i = 0, c = args.length, f = 0; i < c; i++) {
-        final String arg = args[i];
-        if (f > 0) {
-          vm_args[i + 1] = cygwinifyFilePath(arg);
-          f = 0;
-        } else {
-          if ("-out".equals(arg) || "-o".equals(arg) || "-I".equals(arg)) {
-            f = 1;
-          } else {
-            f = 0;
-          }
-          vm_args[i + 1] = arg;
-        }
-        if (i == (c - 2)) {
-          f = 1;
-        }
-      }
-    }
-    return vm_args;
-  }
-
-  protected boolean isWindows() {
-    return File.pathSeparatorChar == '\\';
   }
 
 }
