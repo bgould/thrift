@@ -27,24 +27,24 @@ import java.util.Scanner;
 /**
  * <p>Provides an entry point for invoking the Apache Thrift compiler.</p>
  * <p>This class is capable of invoking the Thrift compiler in two ways. First,
- * a pure Java implementation of the compiler can be invoked, requiring no 
- * external dependencies. However, if a native build of the Thrift compiler 
+ * a pure Java implementation of the compiler can be invoked, requiring no
+ * external dependencies. However, if a native build of the Thrift compiler
  * is available, it can be used instead of the pure Java version. This
  * may be advantageous if you need to use a specific version of Thrift, or also
- * because the Java version has significant startup overhead on the first 
+ * because the Java version has significant startup overhead on the first
  * invocation (1-2 seconds, YMMV).</p>
  * <p>Instances of this class encapsulate the type of invocation to be
  * performed (native vs. pure Java, path to the executable, etc), and are
  * immutable and thread safe so it is fine to share across threads without
  * synchronization.</p>
  * <p>Instantiation is performed through the static <code>newCompiler</code>
- * factory methods defined by this class.  There are three variants.  With no 
- * arguments, 
+ * factory methods defined by this class.  There are three variants.  With no
+ * arguments,
  * </p>
  * <p>The first variant, which takes a {@link java.util.Properties} object as
  * its argument, allows the caller fine-grained control over how the compiler
  * will be invoked.  By default, the pure Java implementation of the compiler
- * will be invoked. To control this behavior, the following properties can be 
+ * will be invoked. To control this behavior, the following properties can be
  * specified:
  * </p>
  * <p>
@@ -53,14 +53,14 @@ import java.util.Scanner;
  * Windows, <code>thrift</code> on other systems)
  * </p>
  * <p>
- * <code>thrift.compiler.executable</code>: if 
+ * <code>thrift.compiler.executable</code>: if
  * <code>thrift.compiler.native</code> is set to true, this property can be used
  * to provide the path to the specific Thrift executable to be used.
  * </p>
  * <p>
  * The above properties can be set on the {@link java.util.Properties} object
- * argument to the <code>newCompiler</code> method, or alternatively can be 
- * specified as system properties.  Values passed in to the static factory 
+ * argument to the <code>newCompiler</code> method, or alternatively can be
+ * specified as system properties.  Values passed in to the static factory
  * method take precedence over values specified as system properties.
  * </p>
  * <p>
@@ -68,9 +68,9 @@ import java.util.Scanner;
  * argument.  When set to false, this method is the equivalent of passing
  * <code>null</code> to the first variant of <code>newCompiler</code>.
  * When set to <code>true</code>, the environment's <code>PATH</code>
- * will be searched for an executable named 'thrift' (or 'thrift.exe' on 
+ * will be searched for an executable named 'thrift' (or 'thrift.exe' on
  * Windows).  If the output of 'thrift -v' matches the version of the pure Java
- * version of the compiler, the native executable is used.  Otherwise the 
+ * version of the compiler, the native executable is used.  Otherwise the
  * embedded pure Java version is invoked as a fallback.
  * </p>
  * <p>
@@ -80,6 +80,21 @@ import java.util.Scanner;
  * @author Benjamin Gould (bcg)
  */
 public abstract class ThriftCompiler {
+
+  public static void main(String... args) throws Throwable {
+    final ThriftCompiler compiler = ThriftCompiler.newCompiler();
+    final ExecutionResult result = compiler.execute(args);
+    if (result.throwable != null) {
+      throw result.throwable;
+    }
+    if (result.outString != null) {
+      System.out.print(result.outString);
+    }
+    if (result.errString != null) {
+      System.err.print(result.errString);
+    }
+    System.exit(result.exitCode);
+  }
 
   public static final String PROPERTY_NATIVE = "thrift.compiler.native";
 
@@ -113,8 +128,8 @@ public abstract class ThriftCompiler {
   /**
    * <p>
    * Returns a new {@link ThriftCompiler}. The exact implementation of the
-   * compiler will be dictated first by the supplied 
-   * {@link java.util.Properties} object, and then the system properties, 
+   * compiler will be dictated first by the supplied
+   * {@link java.util.Properties} object, and then the system properties,
    * as a fallback.
    * </p>
    * @param properties Properties to consult when constructing the compiler.
@@ -124,11 +139,11 @@ public abstract class ThriftCompiler {
     if (properties == null) {
       properties = new Properties();
     }
-    final String nativeProp = properties.getProperty(PROPERTY_NATIVE, 
+    final String nativeProp = properties.getProperty(PROPERTY_NATIVE,
                                   System.getProperty(PROPERTY_NATIVE, ""));
     final boolean useNative = Boolean.valueOf(nativeProp);
     if (useNative) {
-      String executable = properties.getProperty(PROPERTY_EXECUTABLE, 
+      String executable = properties.getProperty(PROPERTY_EXECUTABLE,
                               System.getProperty(PROPERTY_EXECUTABLE, ""));
       if ("".equals(executable.trim())) {
         executable = getDefaultExecutableName();
@@ -149,8 +164,8 @@ public abstract class ThriftCompiler {
    * @return The default executable name for the host platform.
    */
   public static final String getDefaultExecutableName() {
-    return System.getProperty("os.name").startsWith("Windows") 
-      ? WINDOWS_EXECUTABLE 
+    return System.getProperty("os.name").startsWith("Windows")
+      ? WINDOWS_EXECUTABLE
       : DEFAULT_EXECUTABLE;
   }
 
