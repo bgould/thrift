@@ -152,7 +152,7 @@
     </java>
     <jar jarfile="${jar.file}">
       <manifest>
-        <attribute name="Main-Class" value="thrift" />
+        <attribute name="Main-Class" value="org.apache.thrift.compiler.ThriftCompiler" />
       </manifest>
       <fileset dir="${main.bin}">
         <include name="**/*.class"/>
