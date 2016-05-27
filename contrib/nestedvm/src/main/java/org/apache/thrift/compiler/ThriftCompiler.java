@@ -124,18 +124,16 @@ public abstract class ThriftCompiler {
   /**
    * <p>
    * "Automagically" chooses an implementation of the Thrift compiler based on
-   * the boolean value that is passed as its only argument. When that argument
-   * is set to false, or when the <code>thrift.compiler.native</code> is set
-   * to a non-null value, this method is the equivalent of instantiating a
-   * compiler with a <code>null</code> {@link java.util.Properties} object.
-   * </p>
-   * <p>
-   * Otherwise, the environment's <code>PATH</code> will be searched for an
-   * executable named 'thrift' (or 'thrift.exe' on Windows).  If the output of
-   * '<code>thrift -v</code>' matches the version of the embedded pure Java
-   * implementation, the native executable is used as an optimization.
-   * If the 'thrift' command cannot be executed or if the version does not
-   * match, the embedded pure Java version is used as a fallback.
+   * the host environment.  If the <code>thrift.compiler.native</code> system
+   * property is set to a non-null value, this method is the equivalent of
+   * instantiating a compiler with a <code>null</code>
+   * {@link java.util.Properties} object. Otherwise, the environment's
+   * <code>PATH</code> will be searched for an executable named 'thrift' (or
+   * 'thrift.exe' on Windows).  If the output of '<code>thrift -v</code>'
+   * matches the version string of the embedded pure Java implementation, the
+   * native executable is used as an optimization. If the 'thrift' command
+   * cannot be executed or if the version does not match, the embedded pure
+   * Java version is used as a fallback.
    * </p>
    * <p>
    * Returns a new {@link ThriftCompiler}.  The exact implementation of the
@@ -144,20 +142,13 @@ public abstract class ThriftCompiler {
    * </p>
    * @return A new instance of the Thrift compiler.
    */
-  public static final ThriftCompiler newCompiler(boolean checkPathForNative) {
+  public static final ThriftCompiler newCompiler() {
     final boolean nativeProp = System.getProperty(PROPERTY_NATIVE) != null;
-    if (!nativeProp && checkPathForNative) {
+    if (!nativeProp) {
       return newCompiler(loadDefaultProperties());
     } else {
       return newCompiler(null);
     }
-  }
-
-  /**
-   * <p>Equivalent to calling <code>newCompiler(true)</code>.</p>
-   */
-  public static final ThriftCompiler newCompiler() {
-    return newCompiler(true);
   }
 
   /**
