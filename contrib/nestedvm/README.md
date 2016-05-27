@@ -45,12 +45,12 @@ and then run the make file:
 
     export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
     export nestedvm=/usr/local/src/nestedvm
-    cd /usr/local/src/thrift
+    cd /usr/local/src/thrift/contrib/nestedvm
     make
 
 If/when that completes successfully, you can test the build:
 
-    java -jar contrib/nestedvm/build/thrift-compiler-0.10.0-SNAPSHOT.jar -help
+    java -jar build/ant/thrift-compiler-0.10.0-SNAPSHOT.jar -help
 
 If you want to include the compiler in your Java application you can just add
 the JAR file or if you use Maven you could add the dependency to your local
@@ -66,8 +66,20 @@ Once it is in you local repository you can add it to your Maven project:
       <version>0.10.0-SNAPSHOT</version>
     </dependency>
 
-Usage:
-------
+Command line usage:
+-------------------
+
+The JAR file is an executable JAR that takes all of the same options as the 
+native Thrift compiler.  Some example:
+
+    java -jar thrift-compiler-0.10.0-SNAPSHOT.jar -help
+	java -jar thrift-compiler-0.10.0-SNAPSHOT.jar -version
+	java -jar thrift-compiler-0.10.0-SNAPSHOT.jar -gen java tutorial.thrift
+
+
+
+API Usage:
+----------
 
 The JAR file provides a unified Java API for invoking the Thrift compiler,
 either as a native executable or using the embedded Java implementation.  The
