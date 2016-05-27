@@ -18,68 +18,128 @@
  */
 package org.apache.thrift.compiler;
 
+import static java.util.Objects.requireNonNull;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Properties;
-import java.util.Scanner;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
- * <p>Provides an entry point for invoking the Apache Thrift compiler.</p>
+ * <p>Provides a Java API for invoking the Apache Thrift compiler.</p>
  * <p>This class is capable of invoking the Thrift compiler in two ways. First,
- * a pure Java implementation of the compiler can be invoked, requiring no 
- * external dependencies. However, if a native build of the Thrift compiler 
- * is available, it can be used instead of the pure Java version. This
- * may be advantageous if you need to use a specific version of Thrift, or also
- * because the Java version has significant startup overhead on the first 
- * invocation (1-2 seconds, YMMV).</p>
+ * a pure Java implementation of the compiler can be used, requiring no
+ * external dependencies. However, if a native build of the Thrift compiler
+ * is available on the host system, it can be used instead of the pure Java
+ * version. This may be advantageous if you need to use a specific version of
+ * Thrift, or also because the Java version executes more slowly and has
+ * significant startup overhead on the first invocation (1-2 seconds, YMMV).</p>
  * <p>Instances of this class encapsulate the type of invocation to be
  * performed (native vs. pure Java, path to the executable, etc), and are
  * immutable and thread safe so it is fine to share across threads without
- * synchronization.</p>
- * <p>Instantiation is performed through the static <code>newCompiler</code>
- * factory methods defined by this class.  There are three variants.  With no 
- * arguments, 
- * </p>
- * <p>The first variant, which takes a {@link java.util.Properties} object as
- * its argument, allows the caller fine-grained control over how the compiler
- * will be invoked.  By default, the pure Java implementation of the compiler
- * will be invoked. To control this behavior, the following properties can be 
- * specified:
- * </p>
- * <p>
- * <code>thrift.compiler.native</code>: set this property to <code>true</code>
- * in order to use a native executable (by default <code>thrift.exe</code> on
- * Windows, <code>thrift</code> on other systems)
- * </p>
- * <p>
- * <code>thrift.compiler.executable</code>: if 
- * <code>thrift.compiler.native</code> is set to true, this property can be used
- * to provide the path to the specific Thrift executable to be used.
- * </p>
- * <p>
- * The above properties can be set on the {@link java.util.Properties} object
- * argument to the <code>newCompiler</code> method, or alternatively can be 
- * specified as system properties.  Values passed in to the static factory 
- * method take precedence over values specified as system properties.
- * </p>
- * <p>
- * The second variant of the <code>newCompiler</code> method takes a boolean
- * argument.  When set to false, this method is the equivalent of passing
- * <code>null</code> to the first variant of <code>newCompiler</code>.
- * When set to <code>true</code>, the environment's <code>PATH</code>
- * will be searched for an executable named 'thrift' (or 'thrift.exe' on 
- * Windows).  If the output of 'thrift -v' matches the version of the pure Java
- * version of the compiler, the native executable is used.  Otherwise the 
- * embedded pure Java version is invoked as a fallback.
- * </p>
- * <p>
- * The third variant of <code>newCompiler</code>, with no arguments, is the
- * equivalent of calling <code>newCompiler(true)</code>.
+ * synchronization. Instantiation is performed through the static
+ * <code>newCompiler</code> factory methods defined by this class.
  * </p>
  * @author Benjamin Gould (bcg)
  */
 public abstract class ThriftCompiler {
+
+  public static void main(String... args) throws Throwable {
+    if ((args.length > 0) &&
+        (args[0].equals(OPT_EXPORT_LIBS) || args[0].equals(OPT_UNZIP_LIBS))) {
+      if (args.length == 2) {
+        final File destDir = new File(args[1]);
+        try {
+          if (OPT_EXPORT_LIBS.equals(args[0])) {
+            ThriftCompiler.exportLibs(destDir);
+          } else if (OPT_UNZIP_LIBS.equals(args[0])) {
+            ThriftCompiler.unzipLibs(destDir);
+          } else {
+            throw new IllegalStateException();
+          }
+          System.exit(0);
+        } catch (Exception e) {
+          System.err.println("An error occurred: " + e.getMessage());
+          System.exit(2);
+        }
+      } else {
+        System.err.println("thrift " + args[0] + " <destination directory>");
+        System.exit(1);
+      }
+    }
+    final ThriftCompiler compiler = ThriftCompiler.newCompiler();
+    final ExecutionResult result = compiler.execute(args);
+    if (result.throwable != null) {
+      throw result.throwable;
+    }
+    if (result.outString != null) {
+      System.out.print(result.outString);
+    }
+    if (result.errString != null) {
+      System.err.print(result.errString);
+    }
+    System.exit(result.exitCode);
+  }
+
+  public static File exportLibs(File destDir) throws IOException {
+    final File destFile = new File(requireNonNull(destDir), THRIFT_LIBS_RSRC);
+    if (!destDir.isDirectory()) {
+      throw new IOException(
+        "Destination for " + THRIFT_LIBS_RSRC + " must be a directory.");
+    }
+    if (destFile.exists()) {
+      throw new IOException(
+        "Destination file for " + THRIFT_LIBS_RSRC + " already exists.");
+    }
+    try (final InputStream libsIn = thriftLibsResource().openStream()) {
+      try (final FileOutputStream out = new FileOutputStream(destFile)) {
+        final byte[] buffer = new byte[2048];
+        for (int n = -1; (n = libsIn.read(buffer)) > -1; ) {
+          out.write(buffer, 0, n);
+        }
+      }
+    }
+    return destFile;
+  }
+
+  public static File unzipLibs(File destDir) throws IOException {
+    final File resultFile = new File(destDir, "lib");
+    if (resultFile.exists()) {
+      throw new IOException(
+        "Destination " + resultFile.getAbsolutePath() + " already exists.");
+    }
+    try (final InputStream libsIn = thriftLibsResource().openStream()) {
+      try (final ZipInputStream zipIn = new ZipInputStream(libsIn)) {
+        final byte[] buffer = new byte[2048];
+        for (ZipEntry entry; (entry = zipIn.getNextEntry()) != null; ) {
+          final File file = new File(destDir, entry.getName());
+          if (!entry.getName().startsWith("lib/")) {
+            throw new IllegalStateException(
+              "entry should start with lib/: " + entry.getName());
+          }
+          if (entry.isDirectory()) {
+            file.mkdirs();
+          } else {
+            try (final FileOutputStream out = new FileOutputStream(file)) {
+              for (int n = -1; (n = zipIn.read(buffer)) > -1; ) {
+                out.write(buffer, 0, n);
+              }
+            }
+          }
+        }
+      }
+    }
+    return resultFile;
+  }
+
+  public static final String OPT_UNZIP_LIBS = "--unzip-libs";
+
+  public static final String OPT_EXPORT_LIBS = "--export-libs";
 
   public static final String PROPERTY_NATIVE = "thrift.compiler.native";
 
@@ -89,33 +149,40 @@ public abstract class ThriftCompiler {
 
   public static final String DEFAULT_EXECUTABLE = "thrift";
 
-  public static final ThriftCompiler newCompiler() {
-    return newCompiler(true);
-  }
+  public static final String THRIFT_LIBS_RSRC = "thrift-libs.zip";
 
   /**
    * <p>
-   * Returns a new {@link ThriftCompiler}.  The exact implementation of the
-   * compiler will be dictated by system properties, or by default will be the
-   * {@link JavaThriftCompiler} if system properties are not specified.
+   * Instantiates an instance of {@link ThriftCompiler} based on a
+   * {@link java.util.Properties} object that it takes as its argument to allow
+   * the caller fine-grained control over the implementation of the compiler
+   * that will be used.  By default, an instance of the pure Java implementation
+   * of the compiler will be created. To control or alter this behavior, the
+   * following properties can be specified:
    * </p>
-   * @return A new instance of the Thrift compiler.
-   */
-  public static final ThriftCompiler newCompiler(boolean checkPathForNative) {
-    final boolean nativeProp = System.getProperty(PROPERTY_NATIVE) == null;
-    if (nativeProp && checkPathForNative) {
-      return newCompiler(loadDefaultProperties());
-    } else {
-      return newCompiler(null);
-    }
-  }
-
-  /**
+   * <p>
+   * <code>thrift.compiler.native</code>: set this property to <code>true</code>
+   * in order to use a native executable (by default <code>thrift.exe</code> on
+   * Windows, <code>thrift</code> on other systems)
+   * </p>
+   * <p>
+   * <code>thrift.compiler.executable</code>: if
+   * <code>thrift.compiler.native</code> is set to true, this property can be
+   * used to provide the path to the specific Thrift executable to be used.
+   * </p>
+   * <p>
+   * The above properties can be set on the {@link java.util.Properties} object
+   * passed as an argument, or alternatively can be specified as system
+   * properties.  Values passed in via the argument take precedence over
+   * values specified as system properties.
+   * </p>
    * <p>
    * Returns a new {@link ThriftCompiler}. The exact implementation of the
-   * compiler will be dictated first by the supplied 
-   * {@link java.util.Properties} object, and then the system properties, 
-   * as a fallback.
+   * compiler will be dictated first by the supplied
+   * {@link java.util.Properties} object, and then the system properties,
+   * as a fallback if properties are not specified on the argument object.
+   * Passing null as the argument to this method is same as passing an empty
+   * {@link java.util.Properties} object.
    * </p>
    * @param properties Properties to consult when constructing the compiler.
    * @return A new instance of the Thrift compiler.
@@ -124,11 +191,11 @@ public abstract class ThriftCompiler {
     if (properties == null) {
       properties = new Properties();
     }
-    final String nativeProp = properties.getProperty(PROPERTY_NATIVE, 
+    final String nativeProp = properties.getProperty(PROPERTY_NATIVE,
                                   System.getProperty(PROPERTY_NATIVE, ""));
     final boolean useNative = Boolean.valueOf(nativeProp);
     if (useNative) {
-      String executable = properties.getProperty(PROPERTY_EXECUTABLE, 
+      String executable = properties.getProperty(PROPERTY_EXECUTABLE,
                               System.getProperty(PROPERTY_EXECUTABLE, ""));
       if ("".equals(executable.trim())) {
         executable = getDefaultExecutableName();
@@ -139,8 +206,34 @@ public abstract class ThriftCompiler {
     }
   }
 
-  public static final Properties loadDefaultProperties() {
-    return ThriftDefaultProperties.INSTANCE;
+  /**
+   * <p>
+   * "Automagically" chooses an implementation of the Thrift compiler based on
+   * the host environment.  If the <code>thrift.compiler.native</code> system
+   * property is set to a non-null value, this method is the equivalent of
+   * instantiating a compiler with a <code>null</code>
+   * {@link java.util.Properties} object. Otherwise, the environment's
+   * <code>PATH</code> will be searched for an executable named 'thrift' (or
+   * 'thrift.exe' on Windows).  If the output of '<code>thrift -v</code>'
+   * matches the version string of the embedded pure Java implementation, the
+   * native executable is used as an optimization. If the 'thrift' command
+   * cannot be executed or if the version does not match, the embedded pure
+   * Java version is used as a fallback.
+   * </p>
+   * <p>
+   * Returns a new {@link ThriftCompiler}.  The exact implementation of the
+   * compiler will be dictated by system properties, or by default will be the
+   * {@link JavaThriftCompiler} if system properties are not specified.
+   * </p>
+   * @return A new instance of the Thrift compiler.
+   */
+  public static final ThriftCompiler newCompiler() {
+    final boolean nativeProp = System.getProperty(PROPERTY_NATIVE) != null;
+    if (!nativeProp) {
+      return newCompiler(loadDefaultProperties());
+    } else {
+      return newCompiler(null);
+    }
   }
 
   /**
@@ -149,8 +242,8 @@ public abstract class ThriftCompiler {
    * @return The default executable name for the host platform.
    */
   public static final String getDefaultExecutableName() {
-    return System.getProperty("os.name").startsWith("Windows") 
-      ? WINDOWS_EXECUTABLE 
+    return System.getProperty("os.name").startsWith("Windows")
+      ? WINDOWS_EXECUTABLE
       : DEFAULT_EXECUTABLE;
   }
 
@@ -183,6 +276,45 @@ public abstract class ThriftCompiler {
   public String help() {
     final ExecutionResult result = execute("-help");
     return result.errString.trim();
+  }
+
+  private static URL thriftLibsResource() throws IOException {
+    URL rsrc = ThriftCompiler.class.getResource("thrift-libs.zip");
+    if (rsrc == null) {
+      throw new IOException("Embedded thrift-libs.zip resource not found.");
+    }
+    return rsrc;
+  }
+
+  /**
+   * <p>Retrieves the version string of embedded Java Thrift compiler</p>
+   * @return The version string
+   */
+  private static final String embeddedThriftCompilerVersion() {
+    final URL rsc = ThriftCompiler.class.getResource("thrift.compiler.version");
+    if (rsc == null) {
+      throw new IllegalStateException("thift.compiler.version not found");
+    }
+    try (final InputStream in = rsc.openStream()) {
+      try (final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        final byte[] buffer = new byte[64];
+        for (int n = -1; (n = in.read(buffer)) > -1; ) {
+          baos.write(buffer, 0, n);
+        }
+        return baos.toString("UTF-8");
+      }
+    } catch (IOException e) {
+      throw new ThriftCompilerException(e);
+    }
+  }
+
+  /**
+   * <p>Lazy loads and returns the default properties object for use when no
+   * properties are specified for initializing the Thrift compiler</p>
+   * @return The default properties
+   */
+  private static final Properties loadDefaultProperties() {
+    return ThriftDefaultProperties.INSTANCE;
   }
 
   private static final class ThriftDefaultProperties {
@@ -234,20 +366,6 @@ public abstract class ThriftCompiler {
       });
       loaderThread.start();
       return new Properties();
-    }
-  }
-
-  private static final String embeddedThriftCompilerVersion() {
-    final URL rsc = ThriftCompiler.class.getResource("thrift.compiler.version");
-    if (rsc == null) {
-      throw new IllegalStateException("thift.compiler.version not found");
-    }
-    try (final InputStream in = rsc.openStream()) {
-      try (final Scanner s = new Scanner(in)) {
-        return s.useDelimiter("\\A").hasNext() ? s.next().trim() : "";
-      }
-    } catch (IOException e) {
-      throw new ThriftCompilerException(e);
     }
   }
 

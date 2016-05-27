@@ -2,12 +2,16 @@ Pure Java build of the Thrift compiler based on NestedVM
 ========================================================
 
 This module builds the Thrift compiler as a pure Java JAR file that can be run
-as a command line program or called from a Java application.
+as a command line program or called from a Java application.  This is useful if
+you want to distribute a cross-platform Thrift binary, and might be especially
+useful in Java build tools like Ant and Maven.  Requires Java 7 or above.
+
+Building:
+---------
 
 To build, you will need a working [NestedVM][1] installation.  The official 
 NestedVM repository hosted by Adam Megacz will not work for this build; the 
 toolchain includes an old version of GCC that is unusable for this purpose.  
-
 Fortunately a kind hacker named Henry Wertz has made available some patches for
 NestedVM that make it [possible to build with a modern version of GCC][2].
 
@@ -41,12 +45,12 @@ and then run the make file:
 
     export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
     export nestedvm=/usr/local/src/nestedvm
-    cd /usr/local/src/thrift
+    cd /usr/local/src/thrift/contrib/nestedvm
     make
 
 If/when that completes successfully, you can test the build:
 
-    java -jar contrib/nestedvm/build/thrift-compiler-0.9.4-SNAPSHOT.jar -help
+    java -jar build/ant/thrift-compiler-0.10.0-SNAPSHOT.jar -help
 
 If you want to include the compiler in your Java application you can just add
 the JAR file or if you use Maven you could add the dependency to your local
@@ -59,11 +63,71 @@ Once it is in you local repository you can add it to your Maven project:
     <dependency>
       <groupId>org.apache.thrift</groupId>
       <artifactId>thrift-compiler</artifactId>
-      <version>0.9.4-SNAPSHOT</version>
+      <version>0.10.0-SNAPSHOT</version>
     </dependency>
 
-For an example of how to invoke the compiler from a Java program, you can
-take a look at the [`ThriftCompilerTest`][5] class.
+Command line usage:
+-------------------
+
+The JAR file is an executable JAR that takes all of the same options as the 
+native Thrift compiler.  Some example:
+
+    java -jar thrift-compiler-0.10.0-SNAPSHOT.jar -help
+	java -jar thrift-compiler-0.10.0-SNAPSHOT.jar -version
+	java -jar thrift-compiler-0.10.0-SNAPSHOT.jar -gen java tutorial.thrift
+
+
+
+API Usage:
+----------
+
+The JAR file provides a unified Java API for invoking the Thrift compiler,
+either as a native executable or using the embedded Java implementation.  The
+simplest way to do this from a Java program might be something like this:
+
+    ThriftCompiler compiler = ThriftCompiler.newCompiler();
+    final ExecutionResult result = compiler.execute(
+        "-gen", "java:beans", new File("foobar.thrift").getAbsolutePath()
+    );
+    System.out.println("Code generation successful: " + result.successful());
+
+When `ThriftCompiler.newCompiler()` is called, the implementation of the Thrift
+compiler that is chosen is based on the following discovery steps:
+
+ 1. If a system property named `thrift.compiler.native` is defined, its value
+    will dictate the implementation.  If it is set to `"true"`, a native Thrift
+    executable is used.  In that case, the exact path to the binary can be
+    specified via the system property `thrift.compiler.executable`. If
+    `thrift.compiler.native` is set to any other non-null value, it will force
+    the use of the embedded Java implementation.
+ 2. If the `thrift.compiler.native` system property is not set, an attempt will
+    be made to execute the command `thrift -version` (or  `thrift.exe -version`
+    on Windows).  If that command is successful, the version string will be
+    compared to the version string of the embedded Java implementation.  If
+    they match exactly, the native executable will be used instead of the
+    embedded Java version (this is an optimization; the native executable not
+    only runs faster, but the Java implementation incurs a penalty the first
+    time it is loaded because the class file is so large).
+ 3. If the above conditions are met, the embedded Java implementation is used.
+
+The above auto-discovery can be bypassed by using another variant of the
+`newCompiler` method that takes a `java.util.Properties` argument.  As above,
+the following properties can be specified:
+
+  * `thrift.compiler.native` - Forces the use of native executable.  If not set,
+    or if set to any value other than `"true"` the embedded Java implementation
+    of the compiler will be used.<br/>
+  * `thrift.compiler.executable` - If using native executable, this optional 
+    property can provide a specific path to the binary.  If not specified, will
+    default to `thrift.exe` on Windows or `thrift` on other systems.
+
+If these properties are not specified on the `Properties` object passed as an
+argument, system properties will be checked to see if they are defined there.
+Passing null to this method is safe, and is the equivalent of passing an empty
+`Properties` object.
+
+For more examples how to invoke the compiler from a Java program, you can
+take a look at the [`ThriftCompilerTest`][4] class.
 
 Known Issue(s):
 ---------------
@@ -75,5 +139,4 @@ be to create a mapped network drive (i.e., `N:\somefile`).
 [1]: http://nestedvm.ibex.org/
 [2]: https://lists.hcoop.net/pipermail/nestedvm/2014-September/000151.html
 [3]: http://thrift.apache.org/docs/BuildingFromSource
-[4]: http://maven.apache.org
-[5]: src/test/java/org/apache/thrift/compiler/ThriftCompilerTest.java
+[4]: src/test/java/org/apache/thrift/compiler/ThriftCompilerTest.java
