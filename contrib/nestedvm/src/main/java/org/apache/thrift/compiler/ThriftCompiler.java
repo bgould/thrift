@@ -18,11 +18,17 @@
  */
 package org.apache.thrift.compiler;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Properties;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * <p>Provides a Java API for invoking the Apache Thrift compiler.</p>
@@ -44,6 +50,28 @@ import java.util.Properties;
 public abstract class ThriftCompiler {
 
   public static void main(String... args) throws Throwable {
+    if ((args.length > 0) &&
+        (args[0].equals(OPT_EXPORT_LIBS) || args[0].equals(OPT_UNZIP_LIBS))) {
+      if (args.length == 2) {
+        final File destDir = new File(args[1]);
+        try {
+          if (OPT_EXPORT_LIBS.equals(args[0])) {
+            ThriftCompiler.exportLibs(destDir);
+          } else if (OPT_UNZIP_LIBS.equals(args[0])) {
+            ThriftCompiler.unzipLibs(destDir);
+          } else {
+            throw new IllegalStateException();
+          }
+          System.exit(0);
+        } catch (Exception e) {
+          System.err.println("An error occurred: " + e.getMessage());
+          System.exit(2);
+        }
+      } else {
+        System.err.println("thrift " + args[0] + " <destination directory>");
+        System.exit(1);
+      }
+    }
     final ThriftCompiler compiler = ThriftCompiler.newCompiler();
     final ExecutionResult result = compiler.execute(args);
     if (result.throwable != null) {
@@ -58,6 +86,61 @@ public abstract class ThriftCompiler {
     System.exit(result.exitCode);
   }
 
+  public static File exportLibs(File destDir) throws IOException {
+    final File destFile = new File(requireNonNull(destDir), THRIFT_LIBS_RSRC);
+    if (!destDir.isDirectory()) {
+      throw new IOException(
+        "Destination for " + THRIFT_LIBS_RSRC + " must be a directory.");
+    }
+    if (destFile.exists()) {
+      throw new IOException(
+        "Destination file for " + THRIFT_LIBS_RSRC + " already exists.");
+    }
+    try (final InputStream libsIn = thriftLibsResource().openStream()) {
+      try (final FileOutputStream out = new FileOutputStream(destFile)) {
+        final byte[] buffer = new byte[2048];
+        for (int n = -1; (n = libsIn.read(buffer)) > -1; ) {
+          out.write(buffer, 0, n);
+        }
+      }
+    }
+    return destFile;
+  }
+
+  public static File unzipLibs(File destDir) throws IOException {
+    final File resultFile = new File(destDir, "lib");
+    if (resultFile.exists()) {
+      throw new IOException(
+        "Destination " + resultFile.getAbsolutePath() + " already exists.");
+    }
+    try (final InputStream libsIn = thriftLibsResource().openStream()) {
+      try (final ZipInputStream zipIn = new ZipInputStream(libsIn)) {
+        final byte[] buffer = new byte[2048];
+        for (ZipEntry entry; (entry = zipIn.getNextEntry()) != null; ) {
+          final File file = new File(destDir, entry.getName());
+          if (!entry.getName().startsWith("lib/")) {
+            throw new IllegalStateException(
+              "entry should start with lib/: " + entry.getName());
+          }
+          if (entry.isDirectory()) {
+            file.mkdirs();
+          } else {
+            try (final FileOutputStream out = new FileOutputStream(file)) {
+              for (int n = -1; (n = zipIn.read(buffer)) > -1; ) {
+                out.write(buffer, 0, n);
+              }
+            }
+          }
+        }
+      }
+    }
+    return resultFile;
+  }
+
+  public static final String OPT_UNZIP_LIBS = "--unzip-libs";
+
+  public static final String OPT_EXPORT_LIBS = "--export-libs";
+
   public static final String PROPERTY_NATIVE = "thrift.compiler.native";
 
   public static final String PROPERTY_EXECUTABLE = "thrift.compiler.executable";
@@ -65,6 +148,8 @@ public abstract class ThriftCompiler {
   public static final String WINDOWS_EXECUTABLE = "thrift.exe";
 
   public static final String DEFAULT_EXECUTABLE = "thrift";
+
+  public static final String THRIFT_LIBS_RSRC = "thrift-libs.zip";
 
   /**
    * <p>
@@ -191,6 +276,14 @@ public abstract class ThriftCompiler {
   public String help() {
     final ExecutionResult result = execute("-help");
     return result.errString.trim();
+  }
+
+  private static URL thriftLibsResource() throws IOException {
+    URL rsrc = ThriftCompiler.class.getResource("thrift-libs.zip");
+    if (rsrc == null) {
+      throw new IOException("Embedded thrift-libs.zip resource not found.");
+    }
+    return rsrc;
   }
 
   /**
