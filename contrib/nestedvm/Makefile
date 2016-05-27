@@ -65,15 +65,15 @@ MIPS_CXX=$(usr)/bin/mips-unknown-elf-g++
 # compatibility and create hard to find bugs
 MIPS_FLAGS=-march=mips1 -specs=$(usr)/mips-unknown-elf/lib/crt0-override.spec
 MIPS_OPTFLAGS=-O3 \
-	-mmemcpy \
-	-ffunction-sections -fdata-sections \
-	-falign-functions=512 \
-	-fno-rename-registers \
-	-fno-schedule-insns \
-	-fno-delayed-branch
+    -mmemcpy \
+    -ffunction-sections -fdata-sections \
+    -falign-functions=512 \
+    -fno-rename-registers \
+    -fno-schedule-insns \
+    -fno-delayed-branch
 
 MIPS_CFLAGS=$(MIPS_OPTFLAGS) $(MIPS_FLAGS) \
-	-I$(usr)/mips-unknown-elf/include/ -Wall -Wno-unused -DPATH_MAX=4096 # -Werror
+    -I$(usr)/mips-unknown-elf/include/ -Wall -Wno-unused -DPATH_MAX=4096
 MIPS_CXXFLAGS=$(MIPS_CFLAGS) -std=gnu++11
 
 .PHONY: all
@@ -93,10 +93,10 @@ $(thrift_dist_jar): $(thrift_preverified_jar)
 $(thrift_preverified_jar): $(thrift_jar) $(proguard_jar) $(nestedvm_jar)
 	echo "Preverifying generated java class to speed up classloading"
 	$(java_cmd) -jar $(proguard_jar) \
-		-injars $(thrift_jar) -target 1.7 \
-		-dontobfuscate -dontoptimize -dontshrink \
-		-libraryjars $(nestedvm_jar):$(JAVA_HOME)/jre/lib/rt.jar \
-		-outjars $(thrift_preverified_jar)
+    -injars $(thrift_jar) -target 1.7 \
+    -dontobfuscate -dontoptimize -dontshrink \
+    -libraryjars $(nestedvm_jar):$(JAVA_HOME)/jre/lib/rt.jar \
+    -outjars $(thrift_preverified_jar)
 
 $(proguard_jar): | $(build)/tools
 	cd $(build)/tools && wget $(proguard_url)
@@ -117,7 +117,7 @@ $(nestedvm_src): | $(build)
 	cp -R $(nestedvm)/src/org/ibex/* $(nestedvm_pkg)
 	cp -R $(nestedvm)/upstream/build/classgen/src/org/ibex/* $(nestedvm_pkg)
 	find $(nestedvm_src) -name '*.java' -exec \
-		sed -i 's/org\.ibex/$(java_package_name).internal.ibex/g' {} \;
+    sed -i 's/org\.ibex/$(java_package_name).internal.ibex/g' {} \;
 
 $(nestedvm)/nestedvm.jar:
 	(cd $(nestedvm) && make nestedvm.jar)
@@ -131,12 +131,12 @@ clean-thrift:
 
 $(thrift_jar): $(thrift_class_file) $(thrift_xsd_file) $(thrift_libs_zip) 
 	jar cf $(thrift_jar) -C $(thrift_bin) .
-	
+
 $(thrift_class_file): $(nestedvm_jar) $(thrift_exe) | $(thrift_bin) 
 	echo "translating MIPS binary to java class"
 	$(java_cmd) -cp $(nestedvm_jar) \
-		org.apache.thrift.compiler.internal.ibex.nestedvm.Compiler \
-		-o printStats,lessConstants,maxInsnPerMethod=2048,unixRuntime \
+    org.apache.thrift.compiler.internal.ibex.nestedvm.Compiler \
+    -o printStats,lessConstants,maxInsnPerMethod=2048,unixRuntime \
     -d $(thrift_bin) $(thrift_class_name) $(thrift_exe)
 
 $(thrift_libs_zip): | $(thrift_bin)
@@ -152,9 +152,9 @@ $(thrift_src)/compiler/cpp/thrift: $(thrift_src)
 	cd $(thrift_src) && \
 	./bootstrap.sh && \
 	./configure --disable-libs --host=mips-unknown-elf \
- 	  CC="$(MIPS_CC)" CXXFLAGS="$(MIPS_CXXFLAGS)" \
-	  CXX="$(MIPS_CXX)" CFLAGS="$(MIPS_CFLAGS)" && \
-	cd compiler/cpp && make
+    CC="$(MIPS_CC)" CXXFLAGS="$(MIPS_CXXFLAGS)" \
+    CXX="$(MIPS_CXX)" CFLAGS="$(MIPS_CFLAGS)" && \
+    cd compiler/cpp && make
 
 $(thrift_src): | $(build)
 	rm -rf $(thrift_src)_tmp $(thrift_src)

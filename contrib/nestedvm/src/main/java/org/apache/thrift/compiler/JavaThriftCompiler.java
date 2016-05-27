@@ -30,6 +30,7 @@ import org.apache.thrift.compiler.internal.Runtime;
  */
 public class JavaThriftCompiler extends ThriftCompiler {
 
+  @Override
   public ExecutionResult execute(String... args) {
     final Runtime compiler = new Runtime();
     final ByteArrayInputStream in = new ByteArrayInputStream(new byte[0]);
@@ -45,11 +46,16 @@ public class JavaThriftCompiler extends ThriftCompiler {
     final int exitCode = compiler.run(vm_args);
     return new ExecutionResult(
       exitCode,
-      false, 
-      out.toString(), 
+      false,
+      out.toString(),
       err.toString(),
       null
     );
+  }
+
+  @Override
+  public String toString() {
+    return "[JavaThriftCompiler]";
   }
 
   @Override
@@ -65,8 +71,8 @@ public class JavaThriftCompiler extends ThriftCompiler {
    * <p>Converts an argument array into a format suitable for passing to the
    * NestedVM runtime.  Specifically, NestedVM expects a program name to be in
    * argv[0] as in the main function of a C program.</p>
-   * <p>Also, NestedVM cannot handle absolute file paths in Windows properly, 
-   * so if <code>isWindows == true</code> then the args are inspected for 
+   * <p>Also, NestedVM cannot handle absolute file paths in Windows properly,
+   * so if <code>isWindows == true</code> then the args are inspected for
    * file paths that start with Windows drive letters (i.e., C:\foo.thrift)
    * and converted to Cygwin style paths (i.e., /cygdrive/c/foo.thrift),
    * which the <code>realpath</code> syscall in NestedVM are is to handle.</p>
