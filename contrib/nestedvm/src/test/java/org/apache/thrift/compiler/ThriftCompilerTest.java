@@ -18,7 +18,9 @@
  */
 package org.apache.thrift.compiler;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,7 +44,13 @@ import org.xml.sax.InputSource;
  */
 public class ThriftCompilerTest {
 
-  private final ThriftCompiler compiler = ThriftCompiler.newCompiler(false);
+  private final ThriftCompiler compiler;
+
+  public ThriftCompilerTest() {
+    final Properties props = new Properties();
+    props.setProperty(ThriftCompiler.PROPERTY_NATIVE, "false");
+    compiler = ThriftCompiler.newCompiler(props);
+  }
 
   @Test
   public void testVersion() {
@@ -112,7 +120,7 @@ public class ThriftCompilerTest {
     final ThriftCompiler compiler = ThriftCompiler.newCompiler(props);
     assertTrue("should be native", compiler instanceof NativeThriftCompiler);
     assertTrue("isNativeExecutable == true", compiler.isNativeExecutable());
-    assertEquals("custom executable path should be set", 
+    assertEquals("custom executable path should be set",
       ((NativeThriftCompiler) compiler).getExecutable(), "/fake/test/thrift");
 
   }
