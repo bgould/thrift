@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Properties;
@@ -161,4 +162,43 @@ public class ThriftCompilerTest {
     assertEquals("/cygdrive/a/test/out", vm_args1[i++]);
     assertEquals("/cygdrive/z/test/test.thrift", vm_args1[i++]);
   }
+
+  @Test
+  public void testExportLibs() throws IOException {
+    final File out = new File("build/ant/tests/export");
+    if (out.exists()) {
+      deleteRecursively(out);
+    }
+    if (!out.mkdirs()) {
+      throw new IOException("could not create: " + out.getAbsolutePath());
+    }
+    ThriftCompiler.exportLibs(out);
+  }
+
+  @Test
+  public void testUnzipLibs() throws IOException {
+    final File out = new File("build/ant/tests/unzip");
+    if (out.exists()) {
+      deleteRecursively(out);
+    }
+    if (!out.mkdirs()) {
+      throw new IOException("could not create: " + out.getAbsolutePath());
+    }
+    ThriftCompiler.unzipLibs(out);
+  }
+
+  public static void deleteRecursively(File file) throws IOException {
+    if (file.isDirectory()) {
+      final File[] files = file.listFiles();
+      if (files != null) {
+        for (File c : files) {
+          deleteRecursively(c);
+        }
+      }
+    }
+    if (file.exists() && !file.delete()) {
+      throw new FileNotFoundException("Failed to delete file: " + file);
+    }
+  }
+
 }
