@@ -35,6 +35,7 @@ public class NativeThriftCompiler extends ThriftCompiler {
     this.executable = executable;
   }
 
+  @Override
   public ExecutionResult execute(final String... args) {
     if (args == null) {
       throw new IllegalArgumentException("args cannot be null");
@@ -90,6 +91,11 @@ public class NativeThriftCompiler extends ThriftCompiler {
   @Override
   public boolean isNativeExecutable() {
     return true;
+  }
+
+  @Override
+  public String toString() {
+    return "[NativeThriftCompiler executable=" + executable + "]";
   }
 
   private final int nonBlockingCopy(
