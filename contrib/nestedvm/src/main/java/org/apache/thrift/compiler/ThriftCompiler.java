@@ -141,6 +141,8 @@ public abstract class ThriftCompiler {
 
   public static final String OPT_EXPORT_LIBS = "--export-libs";
 
+  public static final String PROPERTY_DEBUG = "thrift.compiler.debug";
+
   public static final String PROPERTY_NATIVE = "thrift.compiler.native";
 
   public static final String PROPERTY_EXECUTABLE = "thrift.compiler.executable";
@@ -188,6 +190,7 @@ public abstract class ThriftCompiler {
    * @return A new instance of the Thrift compiler.
    */
   public static final ThriftCompiler newCompiler(Properties properties) {
+    debug("newCompiler(Properties) called");
     if (properties == null) {
       properties = new Properties();
     }
@@ -228,10 +231,13 @@ public abstract class ThriftCompiler {
    * @return A new instance of the Thrift compiler.
    */
   public static final ThriftCompiler newCompiler() {
+    debug("newCompiler() called");
     final boolean nativeProp = System.getProperty(PROPERTY_NATIVE) != null;
     if (!nativeProp) {
+      debug("native property not set; loading default properties");
       return newCompiler(loadDefaultProperties());
     } else {
+      debug("native property is set; skipping default properties");
       return newCompiler(null);
     }
   }
@@ -301,7 +307,7 @@ public abstract class ThriftCompiler {
         for (int n = -1; (n = in.read(buffer)) > -1; ) {
           baos.write(buffer, 0, n);
         }
-        return baos.toString("UTF-8");
+        return baos.toString("UTF-8").trim();
       }
     } catch (IOException e) {
       throw new ThriftCompilerException(e);
@@ -315,6 +321,16 @@ public abstract class ThriftCompiler {
    */
   private static final Properties loadDefaultProperties() {
     return ThriftDefaultProperties.INSTANCE;
+  }
+
+  private static final boolean isDebug() {
+    return System.getProperty(PROPERTY_DEBUG, "").equals("true");
+  }
+
+  private static final void debug(String fmt, Object... args) {
+    if (isDebug()) {
+      System.err.format("[ThriftCompiler] " + fmt + "%n", args);
+    }
   }
 
   private static final class ThriftDefaultProperties {
@@ -337,24 +353,30 @@ public abstract class ThriftCompiler {
      * @return
      */
     private static final Properties defaultProperties() {
+      debug("defaultProperties() called");
       final String dflt = getDefaultExecutableName();
       final ThriftCompiler nativeCompiler = new NativeThriftCompiler(dflt);
+      debug("attempting to run native compiler: %s", nativeCompiler);
       String nativeVersion;
       try {
         nativeVersion = nativeCompiler.version();
       } catch (ThriftCompilerException e) {
         nativeVersion = null;
       }
+      debug("native version string: %s", nativeVersion);
       final String embeddedVer = embeddedThriftCompilerVersion();
+      debug("embedded Java version: %s", embeddedVer);
       if (nativeVersion != null && nativeVersion.equals(embeddedVer)) {
         final Properties result = new Properties();
         result.setProperty(ThriftCompiler.PROPERTY_NATIVE, "true");
         result.setProperty(ThriftCompiler.PROPERTY_EXECUTABLE, dflt);
+        debug("using native version for default: %s", result);
         return result;
       }
       final Thread loaderThread = new Thread(new Runnable() {
         @Override
         public void run() {
+          debug("loading embedded Java Thrift compiler");
           final String pkg = ThriftCompiler.class.getPackage().getName();
           final String cls = pkg + ".internal.Runtime";
           try {
@@ -362,6 +384,7 @@ public abstract class ThriftCompiler {
           } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
           }
+          debug("embedded Java Thrift compiler class loaded");
         }
       });
       loaderThread.start();
