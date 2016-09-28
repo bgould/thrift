@@ -87,6 +87,10 @@ clean:
 install: $(thrift_dist_jar)
 	ant mvn.install
 
+.PHONY: libthrift
+libthrift:
+	ant build.lib mvn.install.lib
+
 $(thrift_dist_jar): $(thrift_preverified_jar)
 	ant package
 
