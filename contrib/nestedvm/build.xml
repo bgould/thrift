@@ -315,7 +315,35 @@
       <attach file="${javadoc.jar.file}" type="jar" classifier="javadoc"/>
     </artifact:install>
   </target>
- 
+
+  <property name="libthrift.dir" value="build/thrift/src/lib/java" />
+  <property name="libthrift.bld" value="${libthrift.dir}/build" />
+  <property name="libthrift.pom" value="${libthrift.bld}/libthrift-${version}.pom" />
+  <property name="libthrift.jar" value="${libthrift.bld}/libthrift-${version}.jar" />
+  <property name="libthrift.src" value="${libthrift.bld}/libthrift-${version}-sources.jar" />
+  <property name="libthrift.doc" value="${libthrift.bld}/libthrift-${version}-javadoc.jar" />
+
+  <target name="build.lib">
+    <ant antfile="build.xml" dir="${libthrift.dir}" inheritall="false">
+      <property name="thrift.version" value="${thrift.version}" />
+      <target name="clean" />
+      <target name="init" />
+      <!-- <target name="test" /> -->
+      <target name="dist" />
+      <target name="javadoc" />
+      <target name="pack.src" />
+    </ant>
+  </target>
+
+  <target name="mvn.install.lib" depends="mvn.init">
+    <artifact:install file="${libthrift.pom}">
+      <pom file="${libthrift.pom}" />
+      <attach file="${libthrift.jar}" type="jar" />
+      <attach file="${libthrift.src}" type="jar" classifier="sources"/>
+      <attach file="${libthrift.doc}" type="jar" classifier="javadoc"/>
+    </artifact:install>
+  </target>
+
   <macrodef name="signAndDeploy">
     <!-- Sign and deploy jars to apache repo -->
     <attribute name="file"/>
