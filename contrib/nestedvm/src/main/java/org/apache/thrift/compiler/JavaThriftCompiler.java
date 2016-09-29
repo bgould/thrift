@@ -64,7 +64,7 @@ public class JavaThriftCompiler extends ThriftCompiler {
   }
 
   protected boolean isWindows() {
-    return File.pathSeparatorChar == '\\';
+    return File.separatorChar == '\\';
   }
 
   /**
@@ -75,7 +75,7 @@ public class JavaThriftCompiler extends ThriftCompiler {
    * so if <code>isWindows == true</code> then the args are inspected for
    * file paths that start with Windows drive letters (i.e., C:\foo.thrift)
    * and converted to Cygwin style paths (i.e., /cygdrive/c/foo.thrift),
-   * which the <code>realpath</code> syscall in NestedVM are is to handle.</p>
+   * which the <code>realpath</code> syscall in NestedVM is able to handle.</p>
    * @param args Arguments to pass to the Thrift compiler program
    * @param isWindows Flag to denote if Windows paths should be munged
    * @return A new array of arguments including the program and updated paths
