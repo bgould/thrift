@@ -22,7 +22,7 @@ ifeq ($(nestedvm),)
 endif
 
 ifeq ($(JAVA_HOME),)
-	$(error "JAVA_HOME environment variable must be set and must point to a JDK")
+ $(error "JAVA_HOME environment variable must be set and must point to a JDK")
 endif
 
 ver=0.9.4-SNAPSHOT
