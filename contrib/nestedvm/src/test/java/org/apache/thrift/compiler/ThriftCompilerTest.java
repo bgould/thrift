@@ -172,7 +172,7 @@ public class ThriftCompilerTest {
     if (!out.mkdirs()) {
       throw new IOException("could not create: " + out.getAbsolutePath());
     }
-    ThriftCompiler.exportLibs(out);
+    ThriftCompiler.exportSource(out);
   }
 
   @Test
@@ -184,7 +184,7 @@ public class ThriftCompilerTest {
     if (!out.mkdirs()) {
       throw new IOException("could not create: " + out.getAbsolutePath());
     }
-    ThriftCompiler.unzipLibs(out);
+    ThriftCompiler.unzipSource(out);
   }
 
   public static void deleteRecursively(File file) throws IOException {
