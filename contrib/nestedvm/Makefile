@@ -25,7 +25,6 @@ ifeq ($(JAVA_HOME),)
  $(error "JAVA_HOME environment variable must be set and must point to a JDK")
 endif
 
-ver=0.9.4-SNAPSHOT
 work=.
 
 ifeq ($(build),)
@@ -49,7 +48,7 @@ thrift_jar=$(build)/thrift/thrift.jar
 thrift_dist_jar=$(build)/ant/thrift-compiler-$(ver).jar
 thrift_preverified_jar=$(build)/thrift/thrift_preverified.jar
 thrift_xsd_file=$(thrift_bin)/$(java_package_fldr)/thrift-idl.xsd
-thrift_libs_zip=$(thrift_bin)/$(java_package_fldr)/thrift-libs.zip
+thrift_libs_zip=$(thrift_bin)/$(java_package_fldr)/thrift-src.zip
 thrift_class_name=$(java_package_name).internal.Runtime
 thrift_class_file=$(thrift_bin)/$(java_package_fldr)/internal/Runtime.class
 
@@ -144,7 +143,8 @@ $(thrift_class_file): $(nestedvm_jar) $(thrift_exe) | $(thrift_bin)
     -d $(thrift_bin) $(thrift_class_name) $(thrift_exe)
 
 $(thrift_libs_zip): | $(thrift_bin)
-	(cd ../.. && git archive -o contrib/nestedvm/$(thrift_libs_zip) HEAD ./lib)
+	(cd ../.. && git archive --prefix thrift-src/ \
+    -o contrib/nestedvm/$(thrift_libs_zip) HEAD .)
 
 $(thrift_xsd_file): | $(thrift_bin)/$(java_package_fldr)
 	cp ../../lib/xml/thrift-idl.xsd $(thrift_xsd_file)
