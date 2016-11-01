@@ -59,6 +59,10 @@ proguard_jar=$(build)/tools/proguard-base-$(proguard_ver).jar
 usr=$(nestedvm)/upstream/install
 MIPS_CC=$(usr)/bin/mips-unknown-elf-gcc
 MIPS_CXX=$(usr)/bin/mips-unknown-elf-g++
+MIPS_AS=$(usr)/bin/mips-unknown-elf-as
+MIPS_AR=$(usr)/bin/mips-unknown-elf-ar
+MIPS_LD=$(usr)/bin/mips-unknown-elf-ld
+MIPS_RANLIB=$(usr)/bin/mips-unknown-elf-ranlib
 
 # Be VERY careful about changing any of these as they can break binary 
 # compatibility and create hard to find bugs
@@ -74,6 +78,7 @@ MIPS_OPTFLAGS=-O3 \
 MIPS_CFLAGS=$(MIPS_OPTFLAGS) $(MIPS_FLAGS) \
     -I$(usr)/mips-unknown-elf/include/ -Wall -Wno-unused -DPATH_MAX=4096
 MIPS_CXXFLAGS=$(MIPS_CFLAGS) -std=gnu++11
+MIPS_LDFLAGS=-Wl,--gc-sections
 
 .PHONY: all
 all: $(thrift_dist_jar)
@@ -139,7 +144,7 @@ $(thrift_class_file): $(nestedvm_jar) $(thrift_exe) | $(thrift_bin)
 	echo "translating MIPS binary to java class"
 	$(java_cmd) -cp $(nestedvm_jar) \
     org.apache.thrift.compiler.internal.ibex.nestedvm.Compiler \
-    -o printStats,lessConstants,maxInsnPerMethod=2048,unixRuntime \
+    -o lessConstants,printStats,maxInsnPerMethod=2048,unixRuntime,onePage,pageSize=16777216 \
     -d $(thrift_bin) $(thrift_class_name) $(thrift_exe)
 
 $(thrift_libs_zip): | $(thrift_bin)
@@ -156,9 +161,12 @@ $(thrift_src)/compiler/cpp/thrift: $(thrift_src)
 	cd $(thrift_src) && \
 	./bootstrap.sh && \
 	./configure --disable-libs --host=mips-unknown-elf \
-    CC="$(MIPS_CC)" CXXFLAGS="$(MIPS_CXXFLAGS)" \
-    CXX="$(MIPS_CXX)" CFLAGS="$(MIPS_CFLAGS)" && \
-    cd compiler/cpp && make
+    AR="$(MIPS_AR)" LD="$(MIPS_LD)" \
+    AS="$(MIPS_AS)" RANLIB="$(MIPS_RANLIB)" \
+    CC="$(MIPS_CC)" CFLAGS="$(MIPS_CFLAGS)" \
+    CXX="$(MIPS_CXX)" CXXFLAGS="$(MIPS_CXXFLAGS)" \
+    LDFLAGS="$(MIPS_LDFLAGS)" \
+    && cd compiler/cpp && make
 
 $(thrift_src): | $(build)
 	rm -rf $(thrift_src)_tmp $(thrift_src)
