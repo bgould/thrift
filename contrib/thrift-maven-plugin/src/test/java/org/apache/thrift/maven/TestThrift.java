@@ -54,7 +54,8 @@ public class TestThrift {
 
         String thriftExecutable = System.getProperty("thriftExecutable", "thrift");
         if (!(new File(thriftExecutable).exists())) {
-            thriftExecutable = "thrift";
+//            thriftExecutable = "thrift";
+            thriftExecutable = null;
         }
         System.out.println("Thrift compiler: " + thriftExecutable);
 

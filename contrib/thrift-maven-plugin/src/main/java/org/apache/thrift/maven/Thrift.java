@@ -19,19 +19,25 @@
 
 package org.apache.thrift.maven;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import org.codehaus.plexus.util.cli.CommandLineException;
-import org.codehaus.plexus.util.cli.CommandLineUtils;
-import org.codehaus.plexus.util.cli.Commandline;
-import java.io.File;
-import java.util.List;
-import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Lists.newLinkedList;
 import static com.google.common.collect.Sets.newHashSet;
+
+import java.io.File;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+
+import org.apache.thrift.compiler.ExecutionResult;
+import org.apache.thrift.compiler.ThriftCompiler;
+import org.codehaus.plexus.util.StringUtils;
+import org.codehaus.plexus.util.cli.CommandLineException;
+import org.codehaus.plexus.util.cli.Commandline;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * This class represents an invokable configuration of the {@code thrift}
@@ -49,8 +55,9 @@ final class Thrift {
     private final ImmutableSet<File> thriftPathElements;
     private final ImmutableSet<File> thriftFiles;
     private final File javaOutputDirectory;
-    private final CommandLineUtils.StringStreamConsumer output;
-    private final CommandLineUtils.StringStreamConsumer error;
+    private ExecutionResult executionResult;
+//    private final CommandLineUtils.StringStreamConsumer output;
+//    private final CommandLineUtils.StringStreamConsumer error;
 
     /**
      * Constructs a new instance. This should only be used by the {@link Builder}.
@@ -64,13 +71,13 @@ final class Thrift {
      */
     private Thrift(String executable, String generator, ImmutableSet<File> thriftPath,
                    ImmutableSet<File> thriftFiles, File javaOutputDirectory) {
-        this.executable = checkNotNull(executable, "executable");
+        this.executable = executable; // checkNotNull(executable, "executable");
         this.generator = checkNotNull(generator, "generator");
         this.thriftPathElements = checkNotNull(thriftPath, "thriftPath");
         this.thriftFiles = checkNotNull(thriftFiles, "thriftFiles");
         this.javaOutputDirectory = checkNotNull(javaOutputDirectory, "javaOutputDirectory");
-        this.error = new CommandLineUtils.StringStreamConsumer();
-        this.output = new CommandLineUtils.StringStreamConsumer();
+//        this.error = new CommandLineUtils.StringStreamConsumer();
+//        this.output = new CommandLineUtils.StringStreamConsumer();
     }
 
     /**
@@ -83,13 +90,22 @@ final class Thrift {
     public int compile() throws CommandLineException {
 
         for (File thriftFile : thriftFiles) {
-            Commandline cl = new Commandline();
-            cl.setExecutable(executable);
-            cl.addArguments(buildThriftCommand(thriftFile).toArray(new String[]{}));
-            final int result = CommandLineUtils.executeCommandLine(cl, null, output, error);
+//            Commandline cl = new Commandline();
+//            cl.setExecutable(executable);
+//            cl.addArguments(buildThriftCommand(thriftFile).toArray(new String[]{}));
+//            final int result = CommandLineUtils.executeCommandLine(cl, null, output, error);
+            final Properties props = new Properties();
+            if (StringUtils.isNotBlank(executable)) {
+                props.setProperty(ThriftCompiler.PROPERTY_NATIVE, "true");
+                props.setProperty(ThriftCompiler.PROPERTY_EXECUTABLE, executable);
+            } else {
+                props.setProperty(ThriftCompiler.PROPERTY_NATIVE, "false");
+            }
+            final ThriftCompiler compiler = ThriftCompiler.newCompiler(props);
+            executionResult = compiler.execute(buildThriftCommand(thriftFile).toArray(new String[]{}));
 
-            if (result != 0) {
-                return result;
+            if (executionResult.exitCode != 0) {
+                return executionResult.exitCode;
             }
         }
 
@@ -124,14 +140,16 @@ final class Thrift {
      * @return the output
      */
     public String getOutput() {
-        return output.getOutput();
+//        return output.getOutput();
+        return executionResult.outString;
     }
 
     /**
      * @return the error
      */
     public String getError() {
-        return error.getOutput();
+//        return error.getOutput();
+        return executionResult.errString;
     }
 
     /**
@@ -156,7 +174,7 @@ final class Thrift {
          *                                  not a directory.
          */
         public Builder(String executable, File javaOutputDirectory) {
-            this.executable = checkNotNull(executable, "executable");
+            this.executable = executable; // checkNotNull(executable, "executable");
             this.javaOutputDirectory = checkNotNull(javaOutputDirectory);
             checkArgument(javaOutputDirectory.isDirectory());
             this.thriftFiles = newHashSet();

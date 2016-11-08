@@ -51,7 +51,11 @@
     </plugins>
   </build>
   <dependencies>
-      <dependency>
+    <dependency>
+      <groupId>org.apache.thrift</groupId>
+      <artifactId>thrift-compiler</artifactId>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.11</version>
@@ -78,6 +82,15 @@
       <version>3.0.14</version>
     </dependency>
   </dependencies>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.apache.thrift</groupId>
+        <artifactId>thrift-compiler</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <properties>
     <thrift.root>${basedir}/../..</thrift.root>
     <thrift.compiler>${thrift.root}/compiler/cpp/thrift</thrift.compiler>

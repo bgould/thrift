@@ -81,10 +81,10 @@ abstract class AbstractThriftMojo extends AbstractMojo {
     protected MavenProjectHelper projectHelper;
 
     /**
-     * This is the path to the {@code thrift} executable. By default it will search the {@code $PATH}.
+     * This is the path to the {@code thrift} executable. If not specified,
+     * embedded pure Java version of the compiler will be used.
      *
-     * @parameter default-value="thrift"
-     * @required
+     * @parameter
      */
     private String thriftExecutable;
 
@@ -154,6 +154,7 @@ abstract class AbstractThriftMojo extends AbstractMojo {
     /**
      * Executes the mojo.
      */
+    @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         checkParameters();
         final File thriftSourceRoot = getThriftSourceRoot();
@@ -225,7 +226,7 @@ abstract class AbstractThriftMojo extends AbstractMojo {
     private void checkParameters() {
         checkNotNull(project, "project");
         checkNotNull(projectHelper, "projectHelper");
-        checkNotNull(thriftExecutable, "thriftExecutable");
+//        checkNotNull(thriftExecutable, "thriftExecutable");
         checkNotNull(generator, "generator");
         final File thriftSourceRoot = getThriftSourceRoot();
         checkNotNull(thriftSourceRoot);
@@ -276,27 +277,36 @@ abstract class AbstractThriftMojo extends AbstractMojo {
                     !classpathElementFile.getName().endsWith(".xml")) {
 
                 // create the jar file. the constructor validates.
-                JarFile classpathJar;
+                JarFile classpathJar = null;
                 try {
-                    classpathJar = new JarFile(classpathElementFile);
-                } catch (IOException e) {
-                    throw new IllegalArgumentException(format(
-                            "%s was not a readable artifact", classpathElementFile));
-                }
-                for (JarEntry jarEntry : list(classpathJar.entries())) {
-                    final String jarEntryName = jarEntry.getName();
-                    if (jarEntry.getName().endsWith(THRIFT_FILE_SUFFIX)) {
-                        final File uncompressedCopy =
-                                new File(new File(temporaryThriftFileDirectory,
-                                        truncatePath(classpathJar.getName())), jarEntryName);
-                        uncompressedCopy.getParentFile().mkdirs();
-                        copyStreamToFile(new RawInputStreamFacade(classpathJar
-                                .getInputStream(jarEntry)), uncompressedCopy);
-                        thriftDirectories.add(uncompressedCopy.getParentFile());
+                    try {
+                        classpathJar = new JarFile(classpathElementFile);
+                    } catch (IOException e) {
+                        throw new IllegalArgumentException(format(
+                                "%s was not a readable artifact", classpathElementFile));
+                    }
+                    for (JarEntry jarEntry : list(classpathJar.entries())) {
+                        final String jarEntryName = jarEntry.getName();
+                        if (jarEntry.getName().endsWith(THRIFT_FILE_SUFFIX)) {
+                            final File uncompressedCopy =
+                                    new File(new File(temporaryThriftFileDirectory,
+                                            truncatePath(classpathJar.getName())), jarEntryName);
+                            uncompressedCopy.getParentFile().mkdirs();
+                            copyStreamToFile(new RawInputStreamFacade(classpathJar
+                                    .getInputStream(jarEntry)), uncompressedCopy);
+                            thriftDirectories.add(uncompressedCopy.getParentFile());
+                        }
+                    }
+                } finally {
+                    if (classpathJar != null) {
+                        try {
+                            classpathJar.close();
+                        } catch (Exception e) {}
                     }
                 }
             } else if (classpathElementFile.isDirectory()) {
                 File[] thriftFiles = classpathElementFile.listFiles(new FilenameFilter() {
+                    @Override
                     public boolean accept(File dir, String name) {
                         return name.endsWith(THRIFT_FILE_SUFFIX);
                     }
@@ -313,7 +323,7 @@ abstract class AbstractThriftMojo extends AbstractMojo {
     ImmutableSet<File> findThriftFilesInDirectory(File directory) throws IOException {
         checkNotNull(directory);
         checkArgument(directory.isDirectory(), "%s is not a directory", directory);
-        List<File> thriftFilesInDirectory = getFiles(directory, 
+        List<File> thriftFilesInDirectory = getFiles(directory,
         		Joiner.on(",").join(includes),
         		Joiner.on(",").join(excludes));
         return ImmutableSet.copyOf(thriftFilesInDirectory);
