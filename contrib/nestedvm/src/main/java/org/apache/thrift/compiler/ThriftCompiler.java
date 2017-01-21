@@ -205,7 +205,7 @@ public abstract class ThriftCompiler {
       }
       return new NativeThriftCompiler(executable);
     } else {
-      return new JavaThriftCompiler();
+      return new NestedVmThriftCompiler();
     }
   }
 
@@ -226,7 +226,7 @@ public abstract class ThriftCompiler {
    * <p>
    * Returns a new {@link ThriftCompiler}.  The exact implementation of the
    * compiler will be dictated by system properties, or by default will be the
-   * {@link JavaThriftCompiler} if system properties are not specified.
+   * {@link NestedVmThriftCompiler} if system properties are not specified.
    * </p>
    * @return A new instance of the Thrift compiler.
    */

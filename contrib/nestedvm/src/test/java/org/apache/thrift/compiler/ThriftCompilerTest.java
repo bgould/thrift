@@ -140,7 +140,7 @@ public class ThriftCompilerTest {
       "-out", "a:/test\\out",
       "z:\\test/test.thrift"
     };
-    final String[] vm_args1 = JavaThriftCompiler.createVmArgs(inputs, true);
+    final String[] vm_args1 = NestedVmThriftCompiler.createVmArgs(inputs, true);
     int i = 0;
     assertEquals("thrift", vm_args1[i++]);
     assertEquals("-debug", vm_args1[i++]);
