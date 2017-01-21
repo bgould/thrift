@@ -28,7 +28,7 @@ import org.apache.thrift.compiler.internal.Runtime;
  * Implementation of {@link ThriftCompiler} that runs Thrift using NestedVM.
  * @author Benjamin Gould (bcg)
  */
-public class JavaThriftCompiler extends ThriftCompiler {
+public class NestedVmThriftCompiler extends ThriftCompiler {
 
   @Override
   public ExecutionResult execute(String... args) {
@@ -55,7 +55,7 @@ public class JavaThriftCompiler extends ThriftCompiler {
 
   @Override
   public String toString() {
-    return "[JavaThriftCompiler]";
+    return "[" + getClass().getSimpleName() + "]";
   }
 
   @Override
