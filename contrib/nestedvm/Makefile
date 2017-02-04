@@ -31,16 +31,18 @@ ifeq ($(build),)
 build=$(work)/build
 endif
 
+lib=lib
+
 java_cmd=$(JAVA_HOME)/bin/java
 java_package_name=org.apache.thrift.compiler
 java_package_fldr=org/apache/thrift/compiler
 
 nestedvm_src=$(build)/nestedvm/src
-nestedvm_bin=$(build)/nestedvm/bin
 nestedvm_jar=$(build)/nestedvm/nestedvm.jar
 nestedvm_pkg=$(nestedvm_src)/$(java_package_fldr)/internal/ibex
 
 thrift=$(realpath ../..)
+thrift_zip=$(build)/thrift-src.zip
 thrift_src=$(build)/thrift/src
 thrift_bin=$(build)/thrift/classes
 thrift_exe=$(build)/thrift/thrift.mips
@@ -54,9 +56,9 @@ thrift_class_file=$(thrift_bin)/$(java_package_fldr)/internal/Runtime.class
 
 proguard_ver=5.2.1
 proguard_url=http://central.maven.org/maven2/net/sf/proguard/proguard-base/$(proguard_ver)/proguard-base-$(proguard_ver).jar
-proguard_jar=$(build)/tools/proguard-base-$(proguard_ver).jar
+proguard_jar=$(lib)/proguard-base-$(proguard_ver).jar
 
-usr=$(nestedvm)/upstream/install
+usr=$(nestedvm)
 MIPS_CC=$(usr)/bin/mips-unknown-elf-gcc
 MIPS_CXX=$(usr)/bin/mips-unknown-elf-g++
 MIPS_AS=$(usr)/bin/mips-unknown-elf-as
@@ -106,8 +108,8 @@ $(thrift_preverified_jar): $(thrift_jar) $(proguard_jar) $(nestedvm_jar)
     -libraryjars $(nestedvm_jar):$(JAVA_HOME)/jre/lib/rt.jar \
     -outjars $(thrift_preverified_jar)
 
-$(proguard_jar): | $(build)/tools
-	cd $(build)/tools && wget $(proguard_url)
+$(proguard_jar): | $(lib)
+	cd $(lib) && wget $(proguard_url)
 
 .PHONY: nestedvm
 nestedvm: $(nestedvm_jar)
@@ -122,8 +124,8 @@ $(nestedvm_jar): $(nestedvm_src)
 $(nestedvm_src): | $(build)
 	rm -rf $(nestedvm_src)
 	mkdir -p $(nestedvm_pkg)
-	cp -R $(nestedvm)/src/org/ibex/* $(nestedvm_pkg)
-	cp -R $(nestedvm)/upstream/build/classgen/src/org/ibex/* $(nestedvm_pkg)
+	cp -R $(nestedvm)/src/nestedvm/src/org/ibex/* $(nestedvm_pkg)
+	cp -R $(nestedvm)/src/classgen/src/org/ibex/* $(nestedvm_pkg)
 	find $(nestedvm_src) -name '*.java' -exec \
     sed -i 's/org\.ibex/$(java_package_name).internal.ibex/g' {} \;
 
@@ -147,9 +149,8 @@ $(thrift_class_file): $(nestedvm_jar) $(thrift_exe) | $(thrift_bin)
     -o lessConstants,printStats,maxInsnPerMethod=2048,unixRuntime,onePage,pageSize=16777216 \
     -d $(thrift_bin) $(thrift_class_name) $(thrift_exe)
 
-$(thrift_libs_zip): | $(thrift_bin)
-	(cd ../.. && git archive --prefix thrift-src/ \
-    -o contrib/nestedvm/$(thrift_libs_zip) HEAD .)
+$(thrift_libs_zip): $(thrift_zip) | $(thrift_bin)
+	cp $(thrift_zip) $(thrift_libs_zip)
 
 $(thrift_xsd_file): | $(thrift_bin)/$(java_package_fldr)
 	cp ../../lib/xml/thrift-idl.xsd $(thrift_xsd_file)
@@ -166,13 +167,18 @@ $(thrift_src)/compiler/cpp/thrift: $(thrift_src)
     CC="$(MIPS_CC)" CFLAGS="$(MIPS_CFLAGS)" \
     CXX="$(MIPS_CXX)" CXXFLAGS="$(MIPS_CXXFLAGS)" \
     LDFLAGS="$(MIPS_LDFLAGS)" \
-    && cd compiler/cpp && make
+    && cd compiler/cpp && make -j4
 
-$(thrift_src): | $(build)
+$(thrift_src): $(thrift_zip)
 	rm -rf $(thrift_src)_tmp $(thrift_src)
 	mkdir -p $(thrift_src)_tmp
-	(cd ../.. && git archive HEAD .) | tar -x -C $(thrift_src)_tmp
-	mv $(thrift_src)_tmp $(thrift_src)
+	unzip -q $(thrift_zip) -d $(thrift_src)_tmp
+	mv $(thrift_src)_tmp/thrift-src $(thrift_src)
+	rm -rf $(thrift_src)_tmp
+
+$(thrift_zip): | $(build)
+	(cd ../.. && git archive --prefix thrift-src/ --format=zip \
+    -o contrib/nestedvm/$(thrift_zip) HEAD .)
 
 $(thrift_bin)/$(java_package_fldr):
 	mkdir -p $(thrift_bin)/$(java_package_fldr)
@@ -183,8 +189,8 @@ $(thrift_bin):
 $(classes_dir):
 	mkdir -p $(classes_dir)
 
-$(build)/tools:
-	mkdir -p build/tools
-
 $(build):
-	mkdir build
+	mkdir -p $(build)
+
+$(lib):
+	mkdir -p $(lib)
