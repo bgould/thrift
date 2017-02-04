@@ -344,6 +344,18 @@
     </artifact:install>
   </target>
 
+  <target name="mvn.install.dist" depends="mvn.init">
+    <mkdir dir="${build}/dist" />
+    <makeurl file="${build}/dist" property="m2.repository.url"/>
+    <artifact:deploy file="${pom.xml}">
+      <remoteRepository url="${m2.repository.url}"/>
+      <pom file="${pom.xml}" />
+      <attach file="${jar.file}" type="jar" />
+      <attach file="${source.jar.file}" type="jar" classifier="sources"/>
+      <attach file="${javadoc.jar.file}" type="jar" classifier="javadoc"/>
+    </artifact:deploy>
+  </target>
+
   <macrodef name="signAndDeploy">
     <!-- Sign and deploy jars to apache repo -->
     <attribute name="file"/>
