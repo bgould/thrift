@@ -66,6 +66,7 @@
   <property name="test.port" value="9090"/>
 
   <property name="pom.xml" location="${build}/${final.name}.pom"/>
+  <property name="m2.local.repo" location="lib/m2/repository" />
 
   <path id="main.src.path">
     <pathelement location="${main.src}" />
@@ -285,7 +286,10 @@
     <artifact:writepom pomRefId="pom" file="${pom.xml}"/>
 
     <!-- Download the dependencies -->
-    <artifact:dependencies filesetId="build-dependency-jars" pomRefId="pom"/>
+    <mkdir dir="${m2.local.repo}" />
+    <artifact:dependencies filesetId="build-dependency-jars" pomRefId="pom">
+      <localRepository path="${m2.local.repo}" />
+    </artifact:dependencies>
 
     <!-- Copy the dependencies to the build/lib dir -->
     <copy todir="${build}/lib">
@@ -295,6 +299,7 @@
 
     <!-- Dependencies needed for testing -->
     <artifact:dependencies filesetId="test-dependency-jars" useScope="runtime">
+      <localRepository path="${m2.local.repo}" />
       <dependency groupId="junit" artifactId="junit" version="4.4"/>
     </artifact:dependencies>
 
