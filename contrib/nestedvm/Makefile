@@ -17,12 +17,14 @@
 # under the License.
 #
 
+ifneq ($(MAKECMDGOALS),clean)
 ifeq ($(nestedvm),)
- $(error "please specify the location of the NestedVM installation")	
+  $(error "please specify the location of the NestedVM installation")	
 endif
 
 ifeq ($(JAVA_HOME),)
  $(error "JAVA_HOME environment variable must be set and must point to a JDK")
+endif
 endif
 
 work=.
@@ -94,7 +96,7 @@ install: $(thrift_dist_jar)
 	ant mvn.install
 
 .PHONY: libthrift
-libthrift:
+libthrift: $(thrift_src)
 	ant build.lib mvn.install.lib
 
 $(thrift_dist_jar): $(thrift_preverified_jar)
@@ -128,9 +130,6 @@ $(nestedvm_src): | $(build)
 	cp -R $(nestedvm)/src/classgen/src/org/ibex/* $(nestedvm_pkg)
 	find $(nestedvm_src) -name '*.java' -exec \
     sed -i 's/org\.ibex/$(java_package_name).internal.ibex/g' {} \;
-
-$(nestedvm)/nestedvm.jar:
-	(cd $(nestedvm) && make nestedvm.jar)
 
 .PHONY: thrift
 thrift: $(thrift_jar)
