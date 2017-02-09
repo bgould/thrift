@@ -20,11 +20,19 @@ NestedVM that make it [possible to build with a modern version of GCC][2]. Note
 that NestedVM is only required for building; the JAR file that is produced can
 be used and distributed without any dependencies other than a Java 7+ JVM.
 
-At the moment perhaps the easiest way to grab a suitable NestedVM source tree
-is to clone the repository below, which includes Henry Wertz's patches as well
-as David Ehrmann's fixes for the UnixRuntime library that are necessary for 
-Thrift to compile and run properly (importantly, proper handling the .rel.dyn 
-section in Thrift's ELF file as well as bug fix for the realpath syscall).
+If you have Docker installed, you can try using the `docker/build.sh` script to
+build the Thrift compiler JAR using a Docker image that already has the 
+prerequisite NestedVM toolchain installed.  This is probably fastest/easiest
+way to compile the JAR if it works for you.  Once the Docker build completes,
+you can find the executable JAR as well as the source and javadoc JARs in the
+`build/ant` folder (see below for usage instructions).
+
+If you are not going to use Docker, perhaps the easiest way to grab a suitable
+NestedVM source tree is to clone the repository below, which includes Henry
+Wertz's patches as well as David Ehrmann's fixes for the UnixRuntime library 
+that are necessary for  Thrift to compile and run properly (importantly,
+proper handling the .rel.dyn section in Thrift's ELF file as well as bug fix
+for the realpath syscall).
 
     cd /usr/local/src
     git clone https://github.com/bgould/nestedvm
@@ -56,6 +64,11 @@ and then run the make file:
     export nestedvm=/usr/local/nestedvm
     cd /usr/local/src/thrift/contrib/nestedvm
     make
+
+*Note: by default, before compiling the build process will use the 
+`git archive` command to create a zip file of the source at the HEAD of the
+checked out branch; therefore you should be aware that any uncommitted changes
+to the compiler source will not be reflected in the NestedVM build.*
 
 If/when that completes successfully, you can test the build:
 
