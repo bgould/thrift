@@ -29,7 +29,7 @@
   <property environment="env"/>
 
   <condition property="version" value="${thrift.version}">
-    <isset property="release"/>
+    <istrue value="${release}"/>
   </condition>
   <property name="version" value="${thrift.version}-SNAPSHOT"/>
 
@@ -331,6 +331,8 @@
   <target name="build.lib">
     <ant antfile="build.xml" dir="${libthrift.dir}" inheritall="false">
       <property name="thrift.version" value="${thrift.version}" />
+      <property name="release" value="${release}" />
+      <property name="version" value="${version}" />
       <target name="clean" />
       <target name="init" />
       <!-- <target name="test" /> -->
