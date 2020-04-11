@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -300,7 +299,7 @@ func (p *TBinaryProtocol) ReadFieldEnd() error {
 	return nil
 }
 
-var invalidDataLength = NewTProtocolExceptionWithType(INVALID_DATA, errors.New("Invalid data length"))
+var invalidDataLength = &tProtocolException{INVALID_DATA, "Invalid data length"}
 
 func (p *TBinaryProtocol) ReadMapBegin() (kType, vType TType, size int, err error) {
 	k, e := p.ReadByte()
