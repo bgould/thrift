@@ -97,6 +97,7 @@ func NewNumericFromString(sValue string) Numeric {
 	return &numeric{iValue: iValue, dValue: dValue, sValue: sValue, isNil: isNil}
 }
 
+/*
 func NewNumericFromJSONString(sValue string, isNull bool) Numeric {
 	if isNull {
 		return NewNullNumeric()
@@ -114,6 +115,7 @@ func NewNumericFromJSONString(sValue string, isNull bool) Numeric {
 	dValue, _ := strconv.ParseFloat(sValue, 64)
 	return &numeric{iValue: iValue, dValue: dValue, sValue: sValue, isNil: isNull}
 }
+*/
 
 func NewNullNumeric() Numeric {
 	return &numeric{iValue: 0, dValue: 0.0, sValue: "", isNil: true}

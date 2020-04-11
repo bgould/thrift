@@ -83,6 +83,7 @@ public:
     package_flag = "";
     read_write_private_ = false;
     ignore_initialisms_ = false;
+    tinygo_ = false;
     for( iter = parsed_options.begin(); iter != parsed_options.end(); ++iter) {
       if( iter->first.compare("package_prefix") == 0) {
         gen_package_prefix_ = (iter->second);
@@ -94,6 +95,8 @@ public:
         read_write_private_ = true;
       } else if( iter->first.compare("ignore_initialisms") == 0) {
         ignore_initialisms_ =  true;
+      } else if ( iter->first.compare("tinygo") == 0) {
+        tinygo_ = true;
       } else {
         throw "unknown option go:" + iter->first;
       }
@@ -290,6 +293,7 @@ private:
   std::string gen_thrift_import_;
   bool read_write_private_;
   bool ignore_initialisms_;
+  bool tinygo_;
 
   /**
    * File streams
@@ -912,10 +916,14 @@ string t_go_generator::go_imports_begin(bool consts) {
   std::vector<string> system_packages;
   system_packages.push_back("bytes");
   system_packages.push_back("context");
-  system_packages.push_back("reflect");
+  if (!tinygo_) {
+    system_packages.push_back("reflect");
+  }
   // If not writing constants, and there are enums, need extra imports.
   if (!consts && get_program()->get_enums().size() > 0) {
-    system_packages.push_back("database/sql/driver");
+    if (!tinygo_) {
+      system_packages.push_back("database/sql/driver");
+    }
     system_packages.push_back("errors");
   }
   system_packages.push_back("fmt");
@@ -930,13 +938,17 @@ string t_go_generator::go_imports_begin(bool consts) {
  * This will have to do in lieu of more intelligent import statement construction
  */
 string t_go_generator::go_imports_end() {
+  string deepEqual = ""; 
+  if (!tinygo_) {
+    deepEqual = "var _ = reflect.DeepEqual\n";
+  }
   return string(
       ")\n\n"
       "// (needed to ensure safety because of naive import list construction.)\n"
       "var _ = thrift.ZERO\n"
       "var _ = fmt.Printf\n"
-      "var _ = context.Background\n"
-      "var _ = reflect.DeepEqual\n"
+      "var _ = context.Background\n" +
+      deepEqual +
       "var _ = bytes.Equal\n\n");
 }
 
@@ -1060,12 +1072,14 @@ void t_go_generator::generate_enum(t_enum* tenum) {
   f_types_ << "}" << endl << endl;
 
   // Generate Value for driver.Valuer interface
-  f_types_ << "func (p * " << tenum_name << ") Value() (driver.Value, error) {" <<endl;
-  f_types_ << "  if p == nil {" << endl;
-  f_types_ << "    return nil, nil" << endl;
-  f_types_ << "  }" << endl;
-  f_types_ << "return int64(*p), nil" << endl;
-  f_types_ << "}" << endl;
+  if (!tinygo_) {
+    f_types_ << "func (p * " << tenum_name << ") Value() (driver.Value, error) {" <<endl;
+    f_types_ << "  if p == nil {" << endl;
+    f_types_ << "    return nil, nil" << endl;
+    f_types_ << "  }" << endl;
+    f_types_ << "return int64(*p), nil" << endl;
+    f_types_ << "}" << endl;
+  }
 
 }
 
@@ -3296,17 +3310,19 @@ void t_go_generator::generate_serialize_container(ostream& out,
     indent(out) << "}" << endl;
   } else if (ttype->is_set()) {
     t_set* tset = (t_set*)ttype;
-    out << indent() << "for i := 0; i<len(" << prefix << "); i++ {" << endl;
-    out << indent() << "  for j := i+1; j<len(" << prefix << "); j++ {" << endl;
-    string wrapped_prefix = prefix;
-    if (pointer_field) {
-      wrapped_prefix = "(" + prefix + ")";
+    if (!tinygo_) { // FIXME: DeepEqual not implemented in TinyGo, so just skip this check for now
+      out << indent() << "for i := 0; i<len(" << prefix << "); i++ {" << endl;
+      out << indent() << "  for j := i+1; j<len(" << prefix << "); j++ {" << endl;
+      string wrapped_prefix = prefix;
+      if (pointer_field) {
+        wrapped_prefix = "(" + prefix + ")";
+      }
+      out << indent() << "    if reflect.DeepEqual(" << wrapped_prefix << "[i]," << wrapped_prefix << "[j]) { " << endl;
+      out << indent() << "      return thrift.PrependError(\"\", fmt.Errorf(\"%T error writing set field: slice is not unique\", " << wrapped_prefix << "[i]))" << endl;
+      out << indent() << "    }" << endl;
+      out << indent() << "  }" << endl;
+      out << indent() << "}" << endl;
     }
-    out << indent() << "    if reflect.DeepEqual(" << wrapped_prefix << "[i]," << wrapped_prefix << "[j]) { " << endl;
-    out << indent() << "      return thrift.PrependError(\"\", fmt.Errorf(\"%T error writing set field: slice is not unique\", " << wrapped_prefix << "[i]))" << endl;
-    out << indent() << "    }" << endl;
-    out << indent() << "  }" << endl;
-    out << indent() << "}" << endl;
     out << indent() << "for _, v := range " << prefix << " {" << endl;
     indent_up();
     generate_serialize_set_element(out, tset, "v");
@@ -3814,7 +3830,8 @@ THRIFT_REGISTER_GENERATOR(go, "Go",
                           "    package_prefix=  Package prefix for generated files.\n" \
                           "    thrift_import=   Override thrift package import path (default:" + DEFAULT_THRIFT_IMPORT + ")\n" \
                           "    package=         Package name (default: inferred from thrift file name)\n" \
-                          "    ignore_initialisms\n"
+                          "    ignore_initialisms\n" \
                           "                     Disable automatic spelling correction of initialisms (e.g. \"URL\")\n" \
                           "    read_write_private\n"
-                          "                     Make read/write methods private, default is public Read/Write\n")
+                          "                     Make read/write methods private, default is public Read/Write\n" \
+                          "    tinygo\n")
